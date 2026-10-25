@@ -1,7 +1,11 @@
-"""Minimal local web UI for the Issue Investigation Agent."""
+"""Local web UI for IssuePilot: Jinja2 pages plus a small JSON API."""
 
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from issuepilot.config import get_settings
@@ -10,7 +14,11 @@ from issuepilot.graph.nodes.issue_investigation import investigate_issue
 from issuepilot.observability.trace_store import TraceStore
 from issuepilot.web.targets import parse_target
 
+_WEB_DIR = Path(__file__).parent
+
 app = FastAPI(title="IssuePilot")
+app.mount("/static", StaticFiles(directory=_WEB_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=_WEB_DIR / "templates")
 
 
 class AnalyzeRequest(BaseModel):
@@ -54,56 +62,6 @@ def analyze(req: AnalyzeRequest) -> dict:
     }
 
 
-PAGE = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IssuePilot</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; color: #1f2328; }
-  form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
-  input { padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
-  #repo { flex: 1; min-width: 200px; } #issue { width: 110px; }
-  button { padding: 8px 16px; border: 0; border-radius: 6px; background: #1f6feb; color: #fff; font-size: 15px; cursor: pointer; }
-  button:disabled { opacity: .6; }
-  .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; }
-  .muted { color: #666; font-size: 14px; } .err { color: #c00; }
-  h3 { margin-bottom: 4px; }
-</style></head><body>
-<h1>IssuePilot</h1>
-<p class="muted">Analyze a GitHub issue with the Issue Investigation Agent.</p>
-<form id="f">
-  <input id="repo" placeholder="owner/repo or GitHub issue URL" required>
-  <input id="issue" type="number" placeholder="Issue #">
-  <button id="go">Analyze</button>
-</form>
-<div id="out"></div>
-<script>
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const list = (title, items) => items && items.length
-  ? `<h3>${title}</h3><ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
-document.getElementById('f').onsubmit = async e => {
-  e.preventDefault();
-  const out = document.getElementById('out'), btn = document.getElementById('go');
-  btn.disabled = true; out.innerHTML = '<p class="muted">Analyzing… this can take up to a minute.</p>';
-  try {
-    const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repo: document.getElementById('repo').value, issue: +document.getElementById('issue').value || null }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || r.statusText);
-    out.innerHTML = `<div class="card">
-      <h2>${esc(d.title)}</h2><p class="muted">#${d.number} · ${esc(d.repo)}</p>
-      <h3>Summary</h3><p>${esc(d.summary)}</p>
-      ${list('Stated requirements', d.stated_requirements)}
-      ${list('Likely relevant paths', d.likely_relevant_paths)}
-      ${list('Ambiguities', d.ambiguities)}
-      ${d.referenced_numbers.length ? `<h3>Referenced issues/PRs</h3><p>${d.referenced_numbers.map(n => '#' + n).join(', ')}</p>` : ''}
-      <h3>Reasoning</h3><p class="muted">${esc(d.reasoning)}</p></div>`;
-  } catch (err) { out.innerHTML = `<p class="err">Error: ${esc(err.message)}</p>`; }
-  finally { btn.disabled = false; }
-};
-</script></body></html>"""
-
-
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return PAGE
+def index(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "analyze.html", {"active": "analyze"})

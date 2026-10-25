@@ -117,3 +117,18 @@ def test_analyze_missing_llm_key_is_400(
 
     assert r.status_code == 400
     assert "ANTHROPIC_API_KEY is required" in r.json()["detail"]
+
+
+def test_index_renders_cozy_shell(client: TestClient) -> None:
+    r = client.get("/")
+
+    assert r.status_code == 200
+    assert '<link rel="stylesheet" href="/static/cozy.css"' in r.text
+    assert 'id="analyze-form"' in r.text
+
+
+def test_static_css_served(client: TestClient) -> None:
+    r = client.get("/static/cozy.css")
+
+    assert r.status_code == 200
+    assert "--paper: #faf6ef" in r.text
