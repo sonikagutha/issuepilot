@@ -6,7 +6,10 @@ controlled multi-agent LangGraph pipeline (not a single autonomous agent).
 
 ## Status
 
-Milestone 1 in progress — single-issue vertical slice.
+Milestone 1 in progress — single-issue vertical slice. See
+[docs/roadmap.md](docs/roadmap.md) for the phase-by-phase plan (cozy UI,
+starred issues + contribution dashboard, beginner repo suggestions,
+difficulty scoring, Gemma support).
 
 ## Setup
 
@@ -19,6 +22,7 @@ cp .env.example .env   # fill in GITHUB_TOKEN and an LLM provider key
 
 ```bash
 uv run issuepilot analyze owner/repo --issue 123
+uv run issuepilot serve          # local web UI at http://127.0.0.1:8000
 ```
 
 ## Architecture
