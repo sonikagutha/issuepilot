@@ -46,6 +46,11 @@ class _FakeGitHubClient:
     def get_pull(self, owner: str, repo: str, number: int) -> dict:
         return {"number": number, "state": "closed", "merged": True}
 
+    def get_user(self, login: str) -> dict:
+        if login == "ghost":
+            raise GitHubNotFoundError(404, "not found")
+        return {"login": login, "avatar_url": "https://avatars.githubusercontent.com/u/1"}
+
     def search_repositories(self, query: str, sort: str = "stars", per_page: int = 10) -> list[dict]:
         return [
             {
@@ -387,3 +392,92 @@ def test_dashboard_shows_difficulty_badge(client: TestClient) -> None:
     r = client.get("/dashboard")
 
     assert 'class="badge badge--medium"' in r.text
+
+
+def _overview(login: str = "octocat"):
+    from issuepilot.github.profile import (
+        ContributionCalendar,
+        ContributionDay,
+        GitHubProfile,
+        ProfileOverview,
+        PullRequestSummary,
+    )
+
+    return ProfileOverview(
+        profile=GitHubProfile(
+            login=login,
+            name="The Octocat",
+            avatar_url="https://avatars.githubusercontent.com/u/1",
+            html_url=f"https://github.com/{login}",
+            bio="I love open source",
+            public_repos=8,
+            followers=100,
+        ),
+        calendar=ContributionCalendar(
+            total=42,
+            weeks=[[ContributionDay(date="2026-10-19", count=3, level=2)]],
+        ),
+        pull_requests=[
+            PullRequestSummary(
+                title="Fix parser",
+                repo="octo/hello",
+                number=12,
+                html_url="https://github.com/octo/hello/pull/12",
+                state="merged",
+                updated_at="2026-10-20T00:00:00Z",
+            )
+        ],
+    )
+
+
+def test_dashboard_without_profile_offers_link(client: TestClient) -> None:
+    r = client.get("/dashboard")
+
+    assert 'id="profile-link-form"' in r.text
+
+
+def test_link_profile_then_dashboard_shows_dots(
+    client: TestClient, fake_github: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(web_app, "load_profile_overview", lambda c, login: _overview(login))
+
+    r = client.post("/api/profile", json={"username": "octocat"})
+    assert r.status_code == 200
+
+    page = client.get("/dashboard").text
+    assert "The Octocat" in page
+    assert "42 contributions in the last year" in page
+    assert 'class="dot dot--2"' in page
+    assert "Fix parser" in page
+    assert 'class="badge badge--pr-merged"' in page
+
+
+def test_link_unknown_user_is_404(client: TestClient, fake_github: None) -> None:
+    assert client.post("/api/profile", json={"username": "ghost"}).status_code == 404
+    assert 'id="profile-link-form"' in client.get("/dashboard").text
+
+
+def test_link_invalid_username_is_422(client: TestClient, fake_github: None) -> None:
+    assert client.post("/api/profile", json={"username": "not a user!"}).status_code == 422
+
+
+def test_unlink_profile(client: TestClient, fake_github: None) -> None:
+    client.post("/api/profile", json={"username": "octocat"})
+
+    assert client.delete("/api/profile").status_code == 204
+    assert 'id="profile-link-form"' in client.get("/dashboard").text
+
+
+def test_dashboard_profile_failure_still_renders(
+    client: TestClient, fake_github: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fail(c, login):
+        raise GitHubAPIError(403, "rate limited")
+
+    client.post("/api/profile", json={"username": "octocat"})
+    monkeypatch.setattr(web_app, "load_profile_overview", _fail)
+
+    r = client.get("/dashboard")
+
+    assert r.status_code == 200
+    assert "couldn't load your GitHub profile" in r.text

@@ -19,6 +19,7 @@ written once the phase before it is done, so it builds on code that exists.
 - Phase 2: star issues + contribution dashboard with PR status sync
 - Phase 3: beginner home page with repo suggestions; repo pages fall back to other open issues
 - Phase 4: Complexity Analysis Agent: difficulty badge, rubric score bars, effort and skills
+- GitHub profile on the dashboard: contribution graph (green dots) and recent pull requests
 
 ## Phases
 

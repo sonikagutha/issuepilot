@@ -435,3 +435,51 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .skills__label { font-size: 0.88rem; font-weight: 700; margin-right: 2px; }
 .complexity__rationale { margin: 12px 0 0; font-size: 0.92rem; }
 .tracked__meta .badge { margin-left: 6px; }
+
+/* --- dashboard: GitHub profile + contribution dots --- */
+.profile-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.avatar--lg { width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--accent-soft); }
+.profile-card__who { flex: 1 1 220px; min-width: 0; }
+.profile-card__who h2 { margin: 0; }
+.profile-card__who a { text-decoration: none; font-weight: 700; font-size: 0.92rem; }
+.profile-card__bio { margin: 4px 0 0; font-size: 0.92rem; }
+.profile-card__facts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 0.9rem; }
+.profile-card__facts strong { color: var(--ink); }
+
+.calendar-wrap { margin-top: 20px; }
+.calendar__total { margin: 0 0 10px; font-size: 0.95rem; }
+.calendar { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 6px; }
+.calendar__week { display: flex; flex-direction: column; gap: 3px; flex: 1 0 10px; align-items: center; }
+.calendar__week .dot { width: 100%; height: auto; aspect-ratio: 1; max-width: 15px; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--paper-2); flex: none; }
+.dot--1 { background: #c6e48b; }
+.dot--2 { background: #7bc96f; }
+.dot--3 { background: #449e48; }
+.dot--4 { background: #196127; }
+.calendar__legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 0.8rem; margin-top: 6px; }
+
+:root[data-theme="dark"] .dot--1 { background: #0e4429; }
+:root[data-theme="dark"] .dot--2 { background: #006d32; }
+:root[data-theme="dark"] .dot--3 { background: #26a641; }
+:root[data-theme="dark"] .dot--4 { background: #39d353; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dot--1 { background: #0e4429; }
+  :root:not([data-theme="light"]) .dot--2 { background: #006d32; }
+  :root:not([data-theme="light"]) .dot--3 { background: #26a641; }
+  :root:not([data-theme="light"]) .dot--4 { background: #39d353; }
+}
+
+.pr-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.pr-list__item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 0.93rem; }
+.pr-list__item a { color: var(--ink); font-weight: 700; text-decoration: none; }
+.pr-list__item a:hover { color: var(--accent); }
+
+.profile-link { display: flex; flex-direction: column; gap: 12px; }
+.profile-link h2 { margin: 0 0 4px; }
+.profile-link p { margin: 0; }
+.profile-link__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.note-card p { margin: 0 0 8px; }
+
+@media (max-width: 560px) {
+  .profile-card__facts { flex-direction: row; align-items: center; gap: 12px; }
+}

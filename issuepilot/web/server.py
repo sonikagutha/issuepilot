@@ -11,14 +11,16 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from issuepilot.config import get_settings
 from issuepilot.discovery.suggestions import ISSUE_LABEL, LANGUAGES, LEVELS, Level, suggest_repos
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
+from issuepilot.github.profile import ProfileOverview, load_profile_overview
 from issuepilot.graph.pipeline import run_pipeline
 from issuepilot.observability.trace_store import TraceStore
 from issuepilot.rubric.scoring import Difficulty
+from issuepilot.storage.profile import ProfileStore
 from issuepilot.storage.tracker import STATUS_LABELS, Status, TrackedIssue, Tracker
 from issuepilot.web.targets import parse_target
 
@@ -47,6 +49,19 @@ class TrackedUpdate(BaseModel):
     status: Status | None = None
     note: str | None = None
     pr_url: str | None = None
+
+
+class ProfileLink(BaseModel):
+    username: str = Field(pattern=r"^[A-Za-z0-9-]{1,39}$")
+
+
+@contextmanager
+def _profile_store() -> Iterator[ProfileStore]:
+    store = ProfileStore(get_settings().app_db_path)
+    try:
+        yield store
+    finally:
+        store.close()
 
 
 @contextmanager
@@ -166,16 +181,59 @@ def sync_pr(owner: str, repo: str, number: int) -> TrackedIssue:
         return tracker.update(f"{owner}/{repo}", number, pr_state=pr_state, status=status)
 
 
+@app.post("/api/profile")
+def link_profile(req: ProfileLink) -> dict:
+    """Link a GitHub username to the dashboard after checking it exists."""
+    try:
+        with GitHubClient(get_settings()) as client:
+            user = client.get_user(req.username)
+    except GitHubNotFoundError as exc:
+        raise HTTPException(404, f"no GitHub user named {req.username}") from exc
+    except GitHubAPIError as exc:
+        raise HTTPException(502, f"GitHub error: {exc}") from exc
+    with _profile_store() as store:
+        store.set_username(user["login"])
+    return {"login": user["login"], "avatar_url": user["avatar_url"]}
+
+
+@app.delete("/api/profile", status_code=204)
+def unlink_profile() -> Response:
+    with _profile_store() as store:
+        store.clear()
+    return Response(status_code=204)
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
     with _tracker() as tracker:
         items = tracker.list()
         counts = tracker.counts()
+    with _profile_store() as store:
+        username = store.get_username()
+
+    overview: ProfileOverview | None = None
+    profile_error = False
+    if username:
+        try:
+            with GitHubClient(get_settings()) as client:
+                overview = load_profile_overview(client, username)
+        except GitHubAPIError:
+            profile_error = True  # the rest of the dashboard is local and still useful
+
     groups = {status: [i for i in items if i.status == status] for status in STATUS_LABELS}
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {"active": "dashboard", "groups": groups, "counts": counts, "labels": STATUS_LABELS, "total": len(items)},
+        {
+            "active": "dashboard",
+            "groups": groups,
+            "counts": counts,
+            "labels": STATUS_LABELS,
+            "total": len(items),
+            "username": username,
+            "overview": overview,
+            "profile_error": profile_error,
+        },
     )
 
 

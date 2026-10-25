@@ -43,3 +43,30 @@ document.querySelectorAll(".tracked").forEach((card) => {
     if (await call(card, "DELETE")) card.remove();
   });
 });
+
+// GitHub profile link/unlink.
+const linkForm = document.getElementById("profile-link-form");
+if (linkForm) {
+  linkForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = linkForm.querySelector(".js-profile-msg");
+    msg.textContent = "Looking you up on GitHub…";
+    const r = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: document.getElementById("profile-username").value.trim() }),
+    });
+    if (r.ok) { location.reload(); return; }
+    const d = await r.json().catch(() => ({}));
+    msg.textContent = r.status === 422
+      ? "That doesn't look like a GitHub username."
+      : typeof d.detail === "string" ? d.detail : "Couldn't connect, please try again.";
+  });
+}
+
+const unlink = document.getElementById("profile-unlink");
+if (unlink) {
+  unlink.addEventListener("click", async () => {
+    if ((await fetch("/api/profile", { method: "DELETE" })).ok) location.reload();
+  });
+}

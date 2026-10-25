@@ -7,6 +7,70 @@
   <p class="muted">Everything you've starred, from "maybe later" to merged.</p>
 </section>
 
+{% if overview %}
+{% set p = overview.profile %}
+<section class="card profile-card">
+  <div class="profile-card__head">
+    <img class="avatar avatar--lg" src="{{ p.avatar_url }}" alt="">
+    <div class="profile-card__who">
+      <h2>{{ p.name or p.login }}</h2>
+      <a href="{{ p.html_url }}" target="_blank" rel="noopener">@{{ p.login }} ↗</a>
+      {% if p.bio %}<p class="muted profile-card__bio">{{ p.bio }}</p>{% endif %}
+    </div>
+    <div class="profile-card__facts muted">
+      <span><strong>{{ p.public_repos }}</strong> repos</span>
+      <span><strong>{{ p.followers }}</strong> followers</span>
+      <button class="link-btn" id="profile-unlink" type="button">Unlink</button>
+    </div>
+  </div>
+
+  <div class="calendar-wrap">
+    <p class="calendar__total"><strong>{{ "{:,}".format(overview.calendar.total) }}</strong> contributions in the last year</p>
+    <div class="calendar" role="img" aria-label="{{ overview.calendar.total }} contributions in the last year">
+      {% for week in overview.calendar.weeks %}
+      <div class="calendar__week">
+        {% for day in week %}<span class="dot dot--{{ day.level }}" title="{{ day.count }} contribution{{ '' if day.count == 1 else 's' }} on {{ day.date.strftime('%b %-d, %Y') }}"></span>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="calendar__legend muted">Less {% for level in range(5) %}<span class="dot dot--{{ level }}"></span>{% endfor %} More</div>
+  </div>
+
+  {% if overview.pull_requests %}
+  <h3>Your recent pull requests</h3>
+  <ul class="pr-list">
+    {% for pr in overview.pull_requests %}
+    <li class="pr-list__item">
+      <span class="badge badge--pr-{{ pr.state }}">{{ pr.state }}</span>
+      <a href="{{ pr.html_url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
+      <span class="muted">{{ pr.repo }} #{{ pr.number }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% elif username %}
+<div class="card note-card">
+  <p>We couldn't load your GitHub profile (<strong>@{{ username }}</strong>) right now. GitHub may be rate-limiting us, so try again in a minute.</p>
+  <button class="link-btn" id="profile-unlink" type="button">Unlink @{{ username }}</button>
+</div>
+{% else %}
+<form class="card profile-link" id="profile-link-form">
+  <div>
+    <h2>🌱 Connect your GitHub</h2>
+    <p class="muted">See your contribution graph and recent pull requests right next to the issues you're tracking.</p>
+  </div>
+  <div class="profile-link__row">
+    <label class="field field--grow">
+      <span>GitHub username</span>
+      <input id="profile-username" placeholder="octocat" required autocomplete="off" pattern="[A-Za-z0-9-]{1,39}">
+    </label>
+    <button class="btn" type="submit">Connect</button>
+  </div>
+  <p class="muted js-profile-msg" aria-live="polite"></p>
+</form>
+{% endif %}
+
 <div class="stats">
   {% for status, label in labels.items() %}
   <div class="stat stat--{{ status }}">
