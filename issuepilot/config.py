@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     cache_db_path: Path = Path(".issuepilot/cache.db")
     trace_db_path: Path = Path(".issuepilot/traces.db")
+    app_db_path: Path = Path(".issuepilot/app.db")
 
 
 _settings: Settings | None = None

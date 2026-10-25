@@ -72,6 +72,9 @@ class GitHubClient:
         raw_comments = list(self.list_issue_comments(owner, repo, number))
         return Issue.from_api(raw_issue, raw_comments)
 
+    def get_pull(self, owner: str, repo: str, number: int) -> dict[str, Any]:
+        return self._get(f"/repos/{owner}/{repo}/pulls/{number}")
+
     def list_issue_comments(self, owner: str, repo: str, number: int) -> Iterator[dict[str, Any]]:
         yield from self._paginate(f"/repos/{owner}/{repo}/issues/{number}/comments")
 

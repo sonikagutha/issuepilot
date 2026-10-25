@@ -162,3 +162,14 @@ def test_rate_limit_sleeps_until_reset_then_succeeds(
 
     assert issue == {"number": 1}
     assert slept == [11]  # reset (1010) - now (1000) + 1
+
+
+@respx.mock
+def test_get_pull(client: GitHubClient) -> None:
+    respx.get(f"{API}/repos/octo/hello/pulls/5").mock(
+        return_value=httpx.Response(200, json={"number": 5, "state": "closed", "merged": True})
+    )
+
+    pull = client.get_pull("octo", "hello", 5)
+
+    assert pull["merged"] is True
