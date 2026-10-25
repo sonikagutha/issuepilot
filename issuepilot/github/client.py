@@ -79,13 +79,19 @@ class GitHubClient:
         yield from self._paginate(f"/repos/{owner}/{repo}/issues/{number}/comments")
 
     def list_issues(
-        self, owner: str, repo: str, state: str = "open", per_page: int = 100
+        self, owner: str, repo: str, state: str = "open", per_page: int = 100, labels: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        for item in self._paginate(
-            f"/repos/{owner}/{repo}/issues", params={"state": state, "per_page": per_page}
-        ):
+        params: dict[str, Any] = {"state": state, "per_page": per_page}
+        if labels:
+            params["labels"] = labels
+        for item in self._paginate(f"/repos/{owner}/{repo}/issues", params=params):
             if "pull_request" not in item:  # this endpoint returns PRs too
                 yield item
+
+    def search_repositories(self, query: str, sort: str = "stars", per_page: int = 10) -> list[dict[str, Any]]:
+        """One page of repository search results (search has a tighter rate limit, so no pagination)."""
+        body = self._get("/search/repositories", params={"q": query, "sort": sort, "per_page": per_page})
+        return body["items"]
 
     # -- internals ----------------------------------------------------------
 

@@ -173,3 +173,28 @@ def test_get_pull(client: GitHubClient) -> None:
     pull = client.get_pull("octo", "hello", 5)
 
     assert pull["merged"] is True
+
+
+@respx.mock
+def test_search_repositories_returns_items(client: GitHubClient) -> None:
+    route = respx.get(f"{API}/search/repositories").mock(
+        return_value=httpx.Response(200, json={"total_count": 1, "items": [{"full_name": "octo/hello"}]})
+    )
+
+    items = client.search_repositories("language:python", per_page=5)
+
+    assert items == [{"full_name": "octo/hello"}]
+    assert route.calls.last.request.url.params["q"] == "language:python"
+    assert route.calls.last.request.url.params["per_page"] == "5"
+
+
+@respx.mock
+def test_list_issues_passes_labels(client: GitHubClient) -> None:
+    route = respx.get(f"{API}/repos/octo/hello/issues").mock(
+        return_value=httpx.Response(200, json=[{"number": 1}, {"number": 2, "pull_request": {}}])
+    )
+
+    issues = list(client.list_issues("octo", "hello", labels="good first issue"))
+
+    assert [i["number"] for i in issues] == [1]
+    assert route.calls.last.request.url.params["labels"] == "good first issue"

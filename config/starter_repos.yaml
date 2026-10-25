@@ -1,0 +1,58 @@
+# Curated beginner-friendly repositories, used when GitHub search is
+# unavailable (rate limit, offline). Keep entries active and welcoming
+# to first-time contributors; stars are approximate and only used for
+# ordering.
+
+repos:
+  - full_name: pandas-dev/pandas
+    language: python
+    stars: 44000
+    description: Flexible and powerful data analysis / manipulation library for Python.
+  - full_name: scikit-learn/scikit-learn
+    language: python
+    stars: 60000
+    description: Machine learning in Python.
+  - full_name: pallets/flask
+    language: python
+    stars: 68000
+    description: The Python micro framework for building web applications.
+  - full_name: freeCodeCamp/freeCodeCamp
+    language: javascript
+    stars: 400000
+    description: Open-source codebase and curriculum. Learn to code for free.
+  - full_name: mdn/content
+    language: javascript
+    stars: 9000
+    description: The content behind MDN Web Docs.
+  - full_name: excalidraw/excalidraw
+    language: typescript
+    stars: 90000
+    description: Virtual whiteboard for sketching hand-drawn like diagrams.
+  - full_name: microsoft/vscode
+    language: typescript
+    stars: 165000
+    description: Visual Studio Code.
+  - full_name: cli/cli
+    language: go
+    stars: 37000
+    description: GitHub's official command line tool.
+  - full_name: gohugoio/hugo
+    language: go
+    stars: 76000
+    description: The world's fastest framework for building websites.
+  - full_name: rust-lang/rustlings
+    language: rust
+    stars: 55000
+    description: Small exercises to get you used to reading and writing Rust code.
+  - full_name: nushell/nushell
+    language: rust
+    stars: 33000
+    description: A new type of shell.
+  - full_name: TheAlgorithms/Java
+    language: java
+    stars: 60000
+    description: All algorithms implemented in Java.
+  - full_name: apache/dubbo
+    language: java
+    stars: 40000
+    description: The Java implementation of Apache Dubbo, an RPC and microservice framework.
