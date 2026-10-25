@@ -33,7 +33,10 @@
     <div class="tracked__head">
       <div>
         <h3 class="tracked__title"><a href="{{ item.html_url }}" target="_blank" rel="noopener">{{ item.title }}</a></h3>
-        <p class="muted tracked__meta">{{ item.repo }} #{{ item.number }}</p>
+        <p class="muted tracked__meta">
+          {{ item.repo }} #{{ item.number }}
+          {% if item.difficulty %}<span class="badge badge--{{ {'Easy': 'easy', 'Medium': 'medium', 'Difficult': 'hard'}[item.difficulty] }}">{{ item.difficulty }}</span>{% endif %}
+        </p>
       </div>
       <select class="js-status" aria-label="Status">
         {% for value, label in labels.items() %}

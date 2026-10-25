@@ -89,3 +89,42 @@ def test_tracker_persists_across_instances(tmp_path: Path) -> None:
     second = Tracker(tmp_path / "app.db")
 
     assert second.get("octo/hello", 1) is not None
+
+
+def test_star_keeps_existing_difficulty(tracker: Tracker) -> None:
+    tracker.star("octo/hello", 1, "Issue 1", "https://github.com/octo/hello/issues/1", difficulty="Easy")
+
+    again = tracker.star("octo/hello", 1, "Issue 1", "https://github.com/octo/hello/issues/1")
+
+    assert again.difficulty == "Easy"
+
+
+def test_star_fills_in_difficulty_later(tracker: Tracker) -> None:
+    _star(tracker)
+
+    item = tracker.star("octo/hello", 1, "Issue 1", "https://github.com/octo/hello/issues/1", difficulty="Medium")
+
+    assert item.difficulty == "Medium"
+
+
+def test_tracker_migrates_old_db(tmp_path: Path) -> None:
+    import sqlite3
+
+    conn = sqlite3.connect(tmp_path / "app.db")
+    conn.execute(
+        "CREATE TABLE tracked_issues (repo TEXT NOT NULL, number INTEGER NOT NULL, title TEXT NOT NULL, "
+        "html_url TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'starred', note TEXT NOT NULL DEFAULT '', "
+        "pr_url TEXT, pr_state TEXT, starred_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (repo, number))"
+    )
+    conn.execute(
+        "INSERT INTO tracked_issues (repo, number, title, html_url, starred_at, updated_at) "
+        "VALUES ('octo/hello', 1, 'Old', 'https://github.com/octo/hello/issues/1', "
+        "'2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')"
+    )
+    conn.commit()
+    conn.close()
+
+    item = Tracker(tmp_path / "app.db").get("octo/hello", 1)
+
+    assert item is not None
+    assert item.difficulty is None

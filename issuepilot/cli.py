@@ -23,14 +23,10 @@ def analyze(
     repo: str = typer.Argument(..., help="owner/repository"),
     issue: int = typer.Option(..., "--issue", help="Issue number to analyze"),
 ) -> None:
-    """Run the Issue Investigation Agent on a single issue (M1 vertical slice).
-
-    Repository/History Investigation and Complexity Analysis aren't wired
-    in yet — this currently prints the issue-only analysis.
-    """
+    """Run the analysis pipeline (investigation + complexity) on one issue."""
     from issuepilot.config import get_settings
     from issuepilot.github.client import GitHubAPIError, GitHubClient
-    from issuepilot.graph.nodes.issue_investigation import investigate_issue
+    from issuepilot.graph.pipeline import run_pipeline
     from issuepilot.observability.trace_store import TraceStore
 
     if "/" not in repo:
@@ -49,15 +45,24 @@ def analyze(
 
     trace_store = TraceStore(settings.trace_db_path)
     try:
-        context = investigate_issue(gh_issue, settings=settings, trace_store=trace_store)
+        result = run_pipeline(gh_issue, settings=settings, trace_store=trace_store)
     except ValueError as exc:
         console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(1) from exc
     finally:
         trace_store.close()
 
+    context, complexity = result.context, result.complexity
     analysis = context.analysis
     console.print(Panel(f"[bold]{gh_issue.title}[/bold]\n#{gh_issue.number} · {repo}", title="Issue"))
+
+    color = {"Easy": "green", "Medium": "yellow", "Difficult": "red"}[complexity.result.difficulty]
+    console.print(
+        f"[bold {color}]{complexity.result.difficulty}[/bold {color}] "
+        f"(score {complexity.result.overall_score}/5) · effort: {complexity.effort_estimate}"
+    )
+    if complexity.required_skills:
+        console.print(f"[bold]Skills:[/bold] {', '.join(complexity.required_skills)}")
     console.print(f"[bold]Summary:[/bold] {analysis.summary}\n")
 
     if analysis.stated_requirements:

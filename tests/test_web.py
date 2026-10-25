@@ -8,7 +8,10 @@ import issuepilot.web.server as web_app
 from issuepilot.config import Settings
 from issuepilot.github.client import GitHubAPIError, GitHubNotFoundError
 from issuepilot.github.models import Issue
+from issuepilot.graph.pipeline import PipelineResult
+from issuepilot.models.complexity import ComplexityReport
 from issuepilot.models.issue_context import IssueContext, IssueContextAnalysis
+from issuepilot.rubric.scoring import ComplexityResult, DimensionScores
 from issuepilot.web.targets import parse_target
 
 
@@ -81,10 +84,29 @@ def fake_github(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(web_app, "GitHubClient", _FakeGitHubClient)
 
 
+def _pipeline_result() -> PipelineResult:
+    scores = DimensionScores(
+        code_complexity=1,
+        components_affected=1,
+        required_technical_knowledge=2,
+        testing_complexity=1,
+        dependencies=1,
+        requirement_ambiguity=2,
+    )
+    return PipelineResult(
+        context=IssueContext(analysis=IssueContextAnalysis(summary="Fix the thing", reasoning="r")),
+        complexity=ComplexityReport(
+            result=ComplexityResult(scores=scores, overall_score=1.4, difficulty="Easy"),
+            effort_estimate="under 2 hours",
+            required_skills=["Python"],
+            rationale="Tiny change.",
+        ),
+    )
+
+
 @pytest.fixture
 def fake_investigate(monkeypatch: pytest.MonkeyPatch) -> None:
-    context = IssueContext(analysis=IssueContextAnalysis(summary="Fix the thing", reasoning="r"))
-    monkeypatch.setattr(web_app, "investigate_issue", lambda *a, **kw: context)
+    monkeypatch.setattr(web_app, "run_pipeline", lambda *a, **kw: _pipeline_result())
 
 
 @pytest.mark.parametrize(
@@ -119,6 +141,12 @@ def test_analyze_returns_analysis(client: TestClient, fake_github: None, fake_in
     assert r.status_code == 200
     assert r.json()["summary"] == "Fix the thing"
     assert r.json()["html_url"] == "https://github.com/octo/hello/issues/1"
+    complexity = r.json()["complexity"]
+    assert complexity["difficulty"] == "Easy"
+    assert complexity["overall_score"] == 1.4
+    assert complexity["scores"]["required_technical_knowledge"] == 2
+    assert complexity["effort_estimate"] == "under 2 hours"
+    assert complexity["required_skills"] == ["Python"]
 
 
 def test_analyze_github_not_found_is_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,7 +167,7 @@ def test_analyze_missing_llm_key_is_400(
     def _raise(*args: object, **kwargs: object) -> IssueContext:
         raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic")
 
-    monkeypatch.setattr(web_app, "investigate_issue", _raise)
+    monkeypatch.setattr(web_app, "run_pipeline", _raise)
 
     r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1})
 
@@ -339,3 +367,23 @@ def test_ago_formats_relative_age() -> None:
 
     assert web_app._ago(three_days) == "3 days ago"
     assert web_app._ago(None) is None
+
+
+def test_analyze_llm_failure_is_502(client: TestClient, fake_github: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*args: object, **kwargs: object) -> PipelineResult:
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(web_app, "run_pipeline", _boom)
+
+    r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1})
+
+    assert r.status_code == 502
+    assert "provider exploded" in r.json()["detail"]
+
+
+def test_dashboard_shows_difficulty_badge(client: TestClient) -> None:
+    client.post(ISSUE_PATH, json={**STAR_BODY, "difficulty": "Medium"})
+
+    r = client.get("/dashboard")
+
+    assert 'class="badge badge--medium"' in r.text

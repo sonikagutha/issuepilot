@@ -17,7 +17,7 @@ STATUS_LABELS: dict[Status, str] = {
     "dropped": "Dropped",
 }
 
-_COLUMNS = "repo, number, title, html_url, status, note, pr_url, pr_state, starred_at, updated_at"
+_COLUMNS = "repo, number, title, html_url, status, note, pr_url, pr_state, difficulty, starred_at, updated_at"
 
 
 class TrackedIssue(BaseModel):
@@ -29,6 +29,7 @@ class TrackedIssue(BaseModel):
     note: str
     pr_url: str | None
     pr_state: str | None
+    difficulty: str | None = None
     starred_at: datetime
     updated_at: datetime
 
@@ -55,21 +56,29 @@ class Tracker:
                 note TEXT NOT NULL DEFAULT '',
                 pr_url TEXT,
                 pr_state TEXT,
+                difficulty TEXT,
                 starred_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (repo, number)
             )
             """
         )
+        # Databases created before difficulty tracking lack the column.
+        existing = {row[1] for row in self._conn.execute("PRAGMA table_info(tracked_issues)")}
+        if "difficulty" not in existing:
+            self._conn.execute("ALTER TABLE tracked_issues ADD COLUMN difficulty TEXT")
         self._conn.commit()
 
-    def star(self, repo: str, number: int, title: str, html_url: str) -> TrackedIssue:
+    def star(
+        self, repo: str, number: int, title: str, html_url: str, difficulty: str | None = None
+    ) -> TrackedIssue:
         now = _now()
-        # ON CONFLICT DO NOTHING keeps an existing status/note: starring twice is a no-op.
+        # Re-starring keeps status/note; it only fills in a difficulty if one is newly known.
         self._conn.execute(
-            "INSERT INTO tracked_issues (repo, number, title, html_url, starred_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (repo, number) DO NOTHING",
-            (repo, number, title, html_url, now, now),
+            "INSERT INTO tracked_issues (repo, number, title, html_url, difficulty, starred_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (repo, number) "
+            "DO UPDATE SET difficulty = COALESCE(excluded.difficulty, tracked_issues.difficulty)",
+            (repo, number, title, html_url, difficulty, now, now),
         )
         self._conn.commit()
         return self._require(repo, number)

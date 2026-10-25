@@ -16,8 +16,9 @@ from pydantic import BaseModel
 from issuepilot.config import get_settings
 from issuepilot.discovery.suggestions import ISSUE_LABEL, LANGUAGES, LEVELS, Level, suggest_repos
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
-from issuepilot.graph.nodes.issue_investigation import investigate_issue
+from issuepilot.graph.pipeline import run_pipeline
 from issuepilot.observability.trace_store import TraceStore
+from issuepilot.rubric.scoring import Difficulty
 from issuepilot.storage.tracker import STATUS_LABELS, Status, TrackedIssue, Tracker
 from issuepilot.web.targets import parse_target
 
@@ -39,6 +40,7 @@ class AnalyzeRequest(BaseModel):
 class StarRequest(BaseModel):
     title: str
     html_url: str
+    difficulty: Difficulty | None = None
 
 
 class TrackedUpdate(BaseModel):
@@ -71,15 +73,18 @@ def analyze(req: AnalyzeRequest) -> dict:
 
     trace_store = TraceStore(settings.trace_db_path)
     try:
-        context = investigate_issue(gh_issue, settings=settings, trace_store=trace_store)
-    except ValueError as exc:
+        result = run_pipeline(gh_issue, settings=settings, trace_store=trace_store)
+    except ValueError as exc:  # misconfiguration, e.g. a missing API key
         raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:  # provider/LLM failure: report it rather than a bare 500
+        raise HTTPException(502, f"analysis failed: {exc}") from exc
     finally:
         trace_store.close()
 
     with _tracker() as tracker:
         starred = tracker.get(f"{owner}/{repo_name}", issue_number) is not None
 
+    context, complexity = result.context, result.complexity
     analysis = context.analysis
     return {
         "starred": starred,
@@ -93,6 +98,14 @@ def analyze(req: AnalyzeRequest) -> dict:
         "ambiguities": analysis.ambiguities,
         "referenced_numbers": context.referenced_numbers,
         "reasoning": analysis.reasoning,
+        "complexity": {
+            "difficulty": complexity.result.difficulty,
+            "overall_score": complexity.result.overall_score,
+            "scores": complexity.result.scores.model_dump(),
+            "effort_estimate": complexity.effort_estimate,
+            "required_skills": complexity.required_skills,
+            "rationale": complexity.rationale,
+        },
     }
 
 
@@ -105,7 +118,7 @@ def list_tracked() -> dict:
 @app.post("/api/tracked/{owner}/{repo}/{number}")
 def star(owner: str, repo: str, number: int, req: StarRequest) -> TrackedIssue:
     with _tracker() as tracker:
-        return tracker.star(f"{owner}/{repo}", number, req.title, req.html_url)
+        return tracker.star(f"{owner}/{repo}", number, req.title, req.html_url, req.difficulty)
 
 
 @app.patch("/api/tracked/{owner}/{repo}/{number}")

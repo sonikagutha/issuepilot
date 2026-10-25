@@ -410,3 +410,28 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; transition: none !important; }
 }
+
+/* --- complexity card --- */
+.complexity {
+  margin: 16px 0 4px;
+  padding: 18px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  border: 1px solid var(--border);
+}
+.complexity__head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 14px; }
+.badge--lg { font-size: 0.95rem; padding: 5px 14px; }
+.complexity__score { font-weight: 700; font-size: 0.9rem; }
+.complexity__effort { margin-left: auto; font-weight: 800; }
+.meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 24px; }
+.meter { display: grid; grid-template-columns: 140px 1fr 32px; align-items: center; gap: 10px; font-size: 0.88rem; }
+.meter__label { font-weight: 700; }
+.meter__track { height: 8px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
+.meter__fill { display: block; height: 100%; border-radius: 999px; background: var(--sage); transition: width 0.6s ease; }
+.meter__fill[data-level="mid"] { background: var(--amber); }
+.meter__fill[data-level="high"] { background: var(--terracotta); }
+.meter__value { color: var(--muted); font-weight: 700; text-align: right; }
+.skills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; }
+.skills__label { font-size: 0.88rem; font-weight: 700; margin-right: 2px; }
+.complexity__rationale { margin: 12px 0 0; font-size: 0.92rem; }
+.tracked__meta .badge { margin-left: 6px; }

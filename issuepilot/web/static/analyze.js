@@ -36,6 +36,7 @@ function renderResult(d) {
     el("div", { className: "result-head" }, el("h2", { text: d.title }), starButton(d)),
     el("p", { className: "muted result-meta" },
       el("a", { text: `#${d.number} · ${d.repo}`, href: d.html_url })),
+    complexityCard(d.complexity),
     el("h3", { text: "📝 Summary" }),
     el("p", { className: "summary", text: d.summary }),
     ...section("📋 Stated requirements", d.stated_requirements),
@@ -45,6 +46,42 @@ function renderResult(d) {
     el("h3", { text: "🧠 Reasoning" }),
     el("p", { className: "muted reasoning", text: d.reasoning }),
   );
+}
+
+const BADGE = { Easy: "easy", Medium: "medium", Difficult: "hard" };
+const DIMENSION_LABELS = {
+  code_complexity: "Code complexity",
+  components_affected: "Components affected",
+  required_technical_knowledge: "Technical knowledge",
+  testing_complexity: "Testing",
+  dependencies: "Dependencies",
+  requirement_ambiguity: "Ambiguity",
+};
+
+function complexityCard(c) {
+  const bars = Object.entries(DIMENSION_LABELS).map(([key, label]) => {
+    const value = c.scores[key];
+    const fill = el("span", { className: "meter__fill" });
+    fill.style.width = `${(value / 5) * 100}%`;
+    fill.dataset.level = value <= 2 ? "low" : value <= 3 ? "mid" : "high";
+    return el("div", { className: "meter" },
+      el("span", { className: "meter__label", text: label }),
+      el("span", { className: "meter__track" }, fill),
+      el("span", { className: "meter__value", text: `${value}/5` }));
+  });
+
+  return el("section", { className: "complexity" },
+    el("div", { className: "complexity__head" },
+      el("span", { className: `badge badge--lg badge--${BADGE[c.difficulty]}`, text: c.difficulty }),
+      el("span", { className: "complexity__score muted", text: `score ${c.overall_score.toFixed(2)} / 5` }),
+      el("span", { className: "complexity__effort", text: `⏱ ${c.effort_estimate}` })),
+    el("div", { className: "meters" }, ...bars),
+    c.required_skills.length
+      ? el("div", { className: "skills" },
+          el("span", { className: "muted skills__label", text: "Skills you'll use:" }),
+          ...c.required_skills.map((skill) => el("span", { className: "badge badge--label", text: skill })))
+      : "",
+    el("p", { className: "muted complexity__rationale", text: c.rationale }));
 }
 
 function starButton(d) {
@@ -64,7 +101,7 @@ function starButton(d) {
       : await fetch(path, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: d.title, html_url: d.html_url }),
+          body: JSON.stringify({ title: d.title, html_url: d.html_url, difficulty: d.complexity.difficulty }),
         });
     if (r.ok) starred = !starred;
     paint();
@@ -86,7 +123,7 @@ form.addEventListener("submit", async (e) => {
   const out = document.getElementById("out");
   const btn = document.getElementById("go");
   btn.disabled = true;
-  out.replaceChildren(el("p", { className: "loading", text: "Brewing your analysis… ☕" }));
+  out.replaceChildren(el("p", { className: "loading", text: "Brewing your analysis… ☕ (two agents: investigation, then complexity)" }));
 
   try {
     const r = await fetch("/api/analyze", {
