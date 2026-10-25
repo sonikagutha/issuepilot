@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from itertools import islice
 from contextlib import contextmanager
 from pathlib import Path
@@ -213,7 +214,10 @@ def repo_page(request: Request, owner: str, repo: str, level: str | None = None)
         {
             "number": raw["number"],
             "title": raw["title"],
-            "labels": [lbl["name"] for lbl in raw.get("labels", [])],
+            "labels": [
+                {"name": lbl["name"], "color": lbl.get("color") or "8a7b70"} for lbl in raw.get("labels", [])
+            ],
+            "age": _ago(raw.get("created_at")),
             "comments": raw.get("comments", 0),
             "html_url": raw["html_url"],
             "starred": raw["number"] in starred,
@@ -237,3 +241,15 @@ def repo_page(request: Request, owner: str, repo: str, level: str | None = None)
 @app.get("/analyze", response_class=HTMLResponse)
 def analyze_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "analyze.html", {"active": "analyze"})
+
+
+def _ago(timestamp: str | None) -> str | None:
+    """'3 days ago'-style age for a GitHub ISO timestamp."""
+    if not timestamp:
+        return None
+    seconds = (datetime.now(UTC) - datetime.fromisoformat(timestamp.replace("Z", "+00:00"))).total_seconds()
+    for unit, size in (("year", 31_536_000), ("month", 2_592_000), ("day", 86_400), ("hour", 3_600)):
+        if seconds >= size:
+            count = int(seconds // size)
+            return f"{count} {unit}{'s' if count != 1 else ''} ago"
+    return "just now"

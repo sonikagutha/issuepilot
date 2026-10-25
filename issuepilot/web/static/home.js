@@ -18,3 +18,19 @@ if (params.has("level")) {
     location.replace(`/?${next}`);
   }
 }
+
+// Suggestions are fetched server-side and can take a few seconds:
+// show shimmering placeholders instead of a frozen page.
+document.getElementById("profile-form").addEventListener("submit", () => {
+  const btn = document.getElementById("profile-submit");
+  btn.disabled = true;
+  btn.textContent = "Finding friendly repos…";
+  const grid = document.createElement("div");
+  grid.className = "repo-grid";
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement("div");
+    s.className = "skeleton";
+    grid.append(s);
+  }
+  document.getElementById("suggestions").replaceChildren(grid);
+});

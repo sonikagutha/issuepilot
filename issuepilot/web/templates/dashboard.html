@@ -2,6 +2,7 @@
 {% block title %}Your contributions · IssuePilot{% endblock %}
 {% block content %}
 <section class="hero">
+  <span class="eyebrow">📚 Dashboard</span>
   <h1>Your contribution shelf</h1>
   <p class="muted">Everything you've starred, from "maybe later" to merged.</p>
 </section>
@@ -17,7 +18,8 @@
 
 {% if total == 0 %}
 <div class="card empty">
-  <p>No starred issues yet ☕</p>
+  <p class="empty__emoji">⭐</p>
+  <p>No starred issues yet</p>
   <p class="muted">Analyze an issue and press <strong>⭐ Star for later</strong> to keep it here.</p>
   <a class="btn" href="/">Find an issue</a>
 </div>

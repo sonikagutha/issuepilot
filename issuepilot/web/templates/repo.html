@@ -1,35 +1,48 @@
 {% extends "base.html" %}
 {% block title %}{{ repo }} · IssuePilot{% endblock %}
 {% block content %}
+{% set owner = repo.split('/', 1)[0] %}
 <section class="hero">
-  <p class="muted crumb"><a href="/">← Back to suggestions</a></p>
-  <h1>{{ repo }}</h1>
-  {% if showing_other %}
-  <p class="muted note">No open <span class="badge badge--label">{{ label }}</span> issues right now, so here are other open issues instead. Read them carefully: they may be harder.</p>
-  {% else %}
-  <p class="muted">Open issues labelled <span class="badge badge--label">{{ label }}</span>. Pick one that sounds fun.</p>
-  {% endif %}
+  <p class="crumb"><a href="/">← Back to suggestions</a></p>
+  <div class="repo-hero">
+    <img class="avatar" src="https://github.com/{{ owner }}.png?size=112" alt="">
+    <div>
+      <h1>{{ repo }}</h1>
+      <a href="https://github.com/{{ repo }}" target="_blank" rel="noopener">View on GitHub ↗</a>
+    </div>
+  </div>
 </section>
 
+{% if showing_other %}
+<p class="note">No open <span class="badge badge--label">{{ label }}</span> issues right now, so here are other open issues instead. Read them carefully: they may be harder.</p>
+{% elif issues %}
+<p class="muted">{{ issues | length }} open issues labelled <span class="badge badge--label">{{ label }}</span>. Pick one that sounds fun.</p>
+{% endif %}
+
 {% if issues %}
+<div class="issue-list">
 {% for issue in issues %}
 <article class="card issue-row" data-repo="{{ repo }}" data-number="{{ issue.number }}"
          data-title="{{ issue.title }}" data-url="{{ issue.html_url }}" data-starred="{{ 'true' if issue.starred else 'false' }}">
   <div class="issue-row__main">
-    <h3 class="tracked__title"><a href="{{ issue.html_url }}" target="_blank" rel="noopener">{{ issue.title }}</a></h3>
-    <p class="muted tracked__meta">
-      #{{ issue.number }} · 💬 {{ issue.comments }}
-      {% for name in issue.labels %}<span class="badge badge--label">{{ name }}</span>{% endfor %}
-    </p>
+    <h3 class="issue-row__title"><a href="{{ issue.html_url }}" target="_blank" rel="noopener">{{ issue.title }}</a></h3>
+    <div class="issue-row__meta muted">
+      <span>#{{ issue.number }}</span>
+      {% if issue.age %}<span>opened {{ issue.age }}</span>{% endif %}
+      <span>💬 {{ issue.comments }}</span>
+      {% for lbl in issue.labels %}<span class="badge badge--label"><i class="label-dot" style="background:#{{ lbl.color }}"></i>{{ lbl.name }}</span>{% endfor %}
+    </div>
   </div>
   <div class="issue-row__actions">
-    <a class="btn" href="/analyze?repo={{ repo }}&amp;issue={{ issue.number }}">Analyze</a>
-    <button class="btn btn--ghost star-btn js-star" type="button"></button>
+    <a class="btn btn--sm" href="/analyze?repo={{ repo }}&amp;issue={{ issue.number }}">✨ Analyze</a>
+    <button class="btn btn--ghost btn--sm star-btn js-star" type="button"></button>
   </div>
 </article>
 {% endfor %}
+</div>
 {% else %}
 <div class="card empty">
+  <p class="empty__emoji">🍃</p>
   <p>No open issues here right now.</p>
   <a class="btn btn--ghost" href="/analyze?repo={{ repo }}">Analyze any issue in {{ repo }}</a>
 </div>

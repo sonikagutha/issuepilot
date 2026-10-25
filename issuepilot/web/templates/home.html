@@ -2,18 +2,19 @@
 {% block title %}IssuePilot · find a cozy first contribution{% endblock %}
 {% block content %}
 <section class="hero">
-  <h1>Pull up a chair. Let's find you an issue.</h1>
-  <p class="muted">Tell us where you are in your open-source journey, and we'll suggest friendly repositories to start with.</p>
+  <span class="eyebrow">☕ For first-time &amp; returning contributors</span>
+  <h1>Pull up a chair.<br>Let's find you an issue.</h1>
+  <p class="muted">Tell us where you are in your open-source journey, and we'll suggest friendly repositories, explain their issues, and keep track of what you pick up.</p>
 </section>
 
 <form id="profile-form" class="card profile" method="get" action="/">
   <fieldset class="profile__group">
     <legend>Your experience</legend>
     <div class="chips">
-      {% for value in levels %}
+      {% for value, emoji in [("beginner", "🌱"), ("intermediate", "🌿"), ("advanced", "🌳")] %}
       <label class="chip">
         <input type="radio" name="level" value="{{ value }}" {{ 'checked' if value == level }}>
-        <span>{{ value | capitalize }}</span>
+        <span>{{ emoji }} {{ value | capitalize }}</span>
       </label>
       {% endfor %}
     </div>
@@ -24,41 +25,55 @@
       {% for code in all_languages %}
       <label class="chip">
         <input type="checkbox" name="lang" value="{{ code }}" {{ 'checked' if code in languages }}>
-        <span>{{ code | capitalize }}</span>
+        <span><i class="lang-dot lang-dot--{{ code }}"></i>{{ code | capitalize }}</span>
       </label>
       {% endfor %}
     </div>
   </fieldset>
-  <button class="btn" type="submit">Show me repos</button>
+  <button class="btn" id="profile-submit" type="submit">Show me repos →</button>
 </form>
 
+<section id="suggestions">
 {% if has_profile %}
-<section>
-  <h2 class="group__title">Suggested for you</h2>
+  <div class="section-title">
+    <h2>Suggested for you</h2>
+    <span class="muted">{{ level | capitalize }}{% if languages %} · {{ languages | map('capitalize') | join(', ') }}{% endif %}</span>
+  </div>
   {% if fallback %}
-  <p class="muted note">GitHub search is taking a nap right now, so here are some hand-picked favourites instead.</p>
+  <p class="note">GitHub search is taking a nap right now, so here are some hand-picked favourites instead.</p>
   {% endif %}
   {% if suggestions %}
   <div class="repo-grid">
     {% for repo in suggestions %}
+    {% set owner, name = repo.full_name.split('/', 1) %}
     <a class="card repo-card" href="/repo/{{ repo.full_name }}?level={{ level }}">
-      <h3 class="repo-card__name">{{ repo.full_name }}</h3>
+      <div class="repo-card__head">
+        <img class="avatar" src="https://github.com/{{ owner }}.png?size=80" alt="" loading="lazy">
+        <div class="repo-card__names">
+          <span class="repo-card__owner">{{ owner }}</span>
+          <h3 class="repo-card__name">{{ name }}</h3>
+        </div>
+      </div>
       <p class="repo-card__desc">{{ repo.description or "No description yet." }}</p>
-      <p class="muted repo-card__meta">
-        {% if repo.language %}<span>{{ repo.language | capitalize }}</span> · {% endif %}<span>★ {{ "{:,}".format(repo.stars) }}</span>
-      </p>
+      <div class="repo-card__meta">
+        <span class="repo-card__lang">
+          {% if repo.language %}<i class="lang-dot lang-dot--{{ repo.language }}"></i>{{ repo.language | capitalize }} · {% endif %}★ {{ "{:,}".format(repo.stars) }}
+        </span>
+        <span class="repo-card__cta">Browse issues →</span>
+      </div>
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="card empty"><p>Nothing matched those choices. Try another language?</p></div>
+  <div class="card empty"><p class="empty__emoji">🔍</p><p>Nothing matched those choices. Try another language?</p></div>
   {% endif %}
-</section>
 {% else %}
-<div class="card empty">
-  <p>Already have an issue in mind?</p>
-  <a class="btn btn--ghost" href="/analyze">Analyze it directly</a>
-</div>
+  <div class="card empty">
+    <p class="empty__emoji">🧭</p>
+    <p>Pick your level above to get repo suggestions.<br><span class="muted">Already have an issue in mind?</span></p>
+    <a class="btn btn--ghost" href="/analyze">Analyze it directly</a>
+  </div>
 {% endif %}
+</section>
 {% endblock %}
 {% block scripts %}<script src="/static/home.js"></script>{% endblock %}

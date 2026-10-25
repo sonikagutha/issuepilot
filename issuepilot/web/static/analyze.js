@@ -13,14 +13,18 @@ const el = (tag, opts = {}, ...children) => {
 
 const section = (title, items) => {
   if (!items || !items.length) return [];
-  return [el("h3", { text: title }), el("ul", {}, ...items.map((i) => el("li", { text: i })))];
+  return [
+    el("section", { className: "result-section" },
+      el("h3", { text: title }),
+      el("ul", {}, ...items.map((i) => el("li", { text: i })))),
+  ];
 };
 
 function renderResult(d) {
   const repoUrl = `https://github.com/${d.repo}`;
   const refs = d.referenced_numbers.length
     ? [
-        el("h3", { text: "Referenced issues/PRs" }),
+        el("h3", { text: "🔗 Referenced issues/PRs" }),
         el("p", {}, ...d.referenced_numbers.flatMap((n, idx) => [
           idx ? ", " : "",
           el("a", { text: `#${n}`, href: `${repoUrl}/issues/${n}` }),
@@ -32,13 +36,13 @@ function renderResult(d) {
     el("div", { className: "result-head" }, el("h2", { text: d.title }), starButton(d)),
     el("p", { className: "muted result-meta" },
       el("a", { text: `#${d.number} · ${d.repo}`, href: d.html_url })),
-    el("h3", { text: "Summary" }),
-    el("p", { text: d.summary }),
-    ...section("Stated requirements", d.stated_requirements),
-    ...section("Likely relevant paths", d.likely_relevant_paths),
-    ...section("Ambiguities", d.ambiguities),
+    el("h3", { text: "📝 Summary" }),
+    el("p", { className: "summary", text: d.summary }),
+    ...section("📋 Stated requirements", d.stated_requirements),
+    ...section("📁 Likely relevant paths", d.likely_relevant_paths),
+    ...section("❓ Open questions", d.ambiguities),
     ...refs,
-    el("h3", { text: "Reasoning" }),
+    el("h3", { text: "🧠 Reasoning" }),
     el("p", { className: "muted reasoning", text: d.reasoning }),
   );
 }

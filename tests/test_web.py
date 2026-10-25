@@ -330,3 +330,12 @@ def test_repo_page_falls_back_to_other_open_issues(client: TestClient, monkeypat
     assert r.status_code == 200
     assert "Some other issue" in r.text
     assert "other open issues" in r.text
+
+
+def test_ago_formats_relative_age() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    three_days = (datetime.now(UTC) - timedelta(days=3, minutes=1)).isoformat().replace("+00:00", "Z")
+
+    assert web_app._ago(three_days) == "3 days ago"
+    assert web_app._ago(None) is None

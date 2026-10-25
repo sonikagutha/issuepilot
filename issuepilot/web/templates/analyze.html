@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Analyze an issue · IssuePilot{% endblock %}
 {% block content %}
+<div class="narrow">
 <section class="hero">
-  <h1>Find your next cozy contribution</h1>
+  <span class="eyebrow">✨ Issue Investigation Agent</span>
+  <h1>Understand an issue before you dive in</h1>
   <p class="muted">Paste a GitHub issue and we'll read it closely for you: what it asks for, where it lives, and what's still unclear.</p>
 </section>
 
@@ -19,5 +21,6 @@
 </form>
 
 <div id="out" aria-live="polite"></div>
+</div>
 {% endblock %}
 {% block scripts %}<script src="/static/analyze.js"></script>{% endblock %}
