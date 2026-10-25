@@ -573,3 +573,37 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .home-top .profile__group legend { margin-bottom: 8px; }
   .home-top .chip span { padding: 5px 12px; font-size: 0.92rem; }
 }
+
+/* --- use the full width on large screens --- */
+@media (min-width: 1100px) {
+  .container, .site-header__inner { max-width: 1440px; padding-left: 40px; padding-right: 40px; }
+  .narrow { max-width: 980px; }
+  .home-top { grid-template-columns: 1fr 1fr; gap: 0 48px; }
+  .home-top .hero h1 { font-size: 2.8rem; }
+  .home-top .hero p { font-size: 1.08rem; max-width: 640px; }
+  .home-suggestions .repo-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .home-suggestions .repo-card { padding: 16px 20px; }
+  .home-suggestions .repo-card__name { font-size: 1.15rem; }
+  .home-suggestions .repo-card__desc { font-size: 0.93rem; }
+  .stats { gap: 16px; }
+}
+
+@media (min-width: 1600px) {
+  .container, .site-header__inner { max-width: 1760px; padding-left: 56px; padding-right: 56px; }
+  body { font-size: 17px; }
+  .brand { font-size: 1.4rem; }
+  .nav a { font-size: 1.02rem; padding: 7px 16px; }
+  .home-top .hero h1 { font-size: 3.4rem; }
+  .home-top .hero p { font-size: 1.15rem; }
+  .home-top .chip span { padding: 7px 16px; font-size: 1rem; }
+  .home-suggestions .repo-grid { gap: 20px; }
+  .home-suggestions .repo-card { padding: 20px 24px; }
+  .home-suggestions .avatar { width: 42px; height: 42px; }
+  .home-suggestions .repo-card__name { font-size: 1.25rem; }
+  .home-suggestions .repo-card__desc { font-size: 1rem; }
+  .narrow { max-width: 1100px; }
+}
+@media (min-width: 1600px) {
+  .container { padding-bottom: 20px; }
+  .site-footer { padding: 4px 16px 16px; }
+}
