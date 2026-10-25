@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
     openai_model: str = "gpt-4o-mini"
-    google_model: str = "gemini-2.5-flash"
+    google_model: str = "gemini-3.6-flash"
 
     langchain_tracing_v2: bool = False
     langchain_api_key: str | None = None
