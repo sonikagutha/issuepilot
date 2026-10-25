@@ -10,6 +10,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from issuepilot.config import Settings, get_settings
 from issuepilot.github.cache import ResponseCache
+from issuepilot.github.models import Issue
 
 
 class GitHubAPIError(Exception):
@@ -64,6 +65,12 @@ class GitHubClient:
 
     def get_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
         return self._get(f"/repos/{owner}/{repo}/issues/{number}")
+
+    def fetch_issue(self, owner: str, repo: str, number: int) -> Issue:
+        """Fetch an issue plus its comments and parse them into a typed Issue."""
+        raw_issue = self.get_issue(owner, repo, number)
+        raw_comments = list(self.list_issue_comments(owner, repo, number))
+        return Issue.from_api(raw_issue, raw_comments)
 
     def list_issue_comments(self, owner: str, repo: str, number: int) -> Iterator[dict[str, Any]]:
         yield from self._paginate(f"/repos/{owner}/{repo}/issues/{number}/comments")

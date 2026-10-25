@@ -7,6 +7,7 @@ import respx
 from issuepilot.config import Settings
 from issuepilot.github.cache import ResponseCache
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
+from issuepilot.github.models import Issue
 
 API = "https://api.github.com"
 
@@ -101,6 +102,42 @@ def test_list_issues_paginates_and_skips_pull_requests(client: GitHubClient) -> 
     issues = list(client.list_issues("octo", "hello"))
 
     assert [i["number"] for i in issues] == [1, 3]
+
+
+@respx.mock
+def test_fetch_issue_returns_typed_issue_with_comments(client: GitHubClient) -> None:
+    respx.get(f"{API}/repos/octo/hello/issues/1").mock(
+        return_value=httpx.Response(
+            200,
+            headers={"ETag": '"abc"'},
+            json={
+                "number": 1,
+                "title": "Bug",
+                "body": "Something broke",
+                "state": "open",
+                "labels": [{"name": "bug"}],
+                "user": {"login": "octocat"},
+                "comments": 1,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "html_url": "https://github.com/octo/hello/issues/1",
+            },
+        )
+    )
+    respx.get(f"{API}/repos/octo/hello/issues/1/comments", params={"per_page": "100"}).mock(
+        return_value=httpx.Response(
+            200,
+            headers={"ETag": '"c1"'},
+            json=[{"id": 9, "user": {"login": "alice"}, "body": "me too", "created_at": "2026-01-01T00:00:00Z"}],
+        )
+    )
+
+    issue = client.fetch_issue("octo", "hello", 1)
+
+    assert isinstance(issue, Issue)
+    assert issue.title == "Bug"
+    assert len(issue.comments) == 1
+    assert issue.comments[0].author == "alice"
 
 
 @respx.mock
