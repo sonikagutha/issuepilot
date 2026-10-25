@@ -8,6 +8,8 @@ from pydantic import BaseModel, field_validator
 
 Difficulty = Literal["Easy", "Medium", "Difficult"]
 
+RUBRIC_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "rubric.yaml"
+
 DIMENSIONS: tuple[str, ...] = (
     "code_complexity",
     "components_affected",
@@ -45,6 +47,7 @@ class RubricConfig(BaseModel):
     """
 
     weights: dict[str, float]
+    descriptions: dict[str, str] = {}
     easy_max: float
     medium_max: float
 
@@ -57,6 +60,7 @@ class RubricConfig(BaseModel):
             raise ValueError(f"rubric config at {path} is missing dimension {exc}") from exc
         return cls(
             weights=weights,
+            descriptions={dim: raw["dimensions"][dim].get("description", "") for dim in DIMENSIONS},
             easy_max=raw["thresholds"]["easy_max"],
             medium_max=raw["thresholds"]["medium_max"],
         )
