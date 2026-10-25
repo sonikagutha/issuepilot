@@ -4,7 +4,11 @@
 <section class="hero">
   <p class="muted crumb"><a href="/">← Back to suggestions</a></p>
   <h1>{{ repo }}</h1>
+  {% if showing_other %}
+  <p class="muted note">No open <span class="badge badge--label">{{ label }}</span> issues right now, so here are other open issues instead. Read them carefully: they may be harder.</p>
+  {% else %}
   <p class="muted">Open issues labelled <span class="badge badge--label">{{ label }}</span>. Pick one that sounds fun.</p>
+  {% endif %}
 </section>
 
 {% if issues %}
@@ -26,7 +30,7 @@
 {% endfor %}
 {% else %}
 <div class="card empty">
-  <p>No open "{{ label }}" issues here right now.</p>
+  <p>No open issues here right now.</p>
   <a class="btn btn--ghost" href="/analyze?repo={{ repo }}">Analyze any issue in {{ repo }}</a>
 </div>
 {% endif %}

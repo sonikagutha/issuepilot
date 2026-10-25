@@ -313,3 +313,20 @@ def test_repo_page_not_found(client: TestClient, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(web_app, "GitHubClient", _Missing)
 
     assert client.get("/repo/octo/nope").status_code == 404
+
+
+def test_repo_page_falls_back_to_other_open_issues(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _NoLabelled(_FakeGitHubClient):
+        def list_issues(self, owner, repo, state="open", per_page=100, labels=None):
+            if labels:
+                return iter(())
+            return iter([{"number": 7, "title": "Some other issue", "labels": [], "comments": 0,
+                          "html_url": "https://github.com/octo/hello/issues/7"}])
+
+    monkeypatch.setattr(web_app, "GitHubClient", _NoLabelled)
+
+    r = client.get("/repo/octo/hello?level=beginner")
+
+    assert r.status_code == 200
+    assert "Some other issue" in r.text
+    assert "other open issues" in r.text

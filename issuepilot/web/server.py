@@ -198,6 +198,10 @@ def repo_page(request: Request, owner: str, repo: str, level: str | None = None)
     try:
         with GitHubClient(get_settings()) as client:
             raw_issues = list(islice(client.list_issues(owner, repo, labels=label), 30))
+            # Nothing carries the friendly label: show other open issues rather than a dead end.
+            showing_other = not raw_issues
+            if showing_other:
+                raw_issues = list(islice(client.list_issues(owner, repo), 30))
     except GitHubNotFoundError as exc:
         raise HTTPException(404, f"repository not found: {owner}/{repo}") from exc
     except GitHubAPIError as exc:
@@ -219,7 +223,14 @@ def repo_page(request: Request, owner: str, repo: str, level: str | None = None)
     return templates.TemplateResponse(
         request,
         "repo.html",
-        {"active": "home", "repo": f"{owner}/{repo}", "label": label, "level": chosen, "issues": issues},
+        {
+            "active": "home",
+            "repo": f"{owner}/{repo}",
+            "label": label,
+            "level": chosen,
+            "issues": issues,
+            "showing_other": showing_other,
+        },
     )
 
 
