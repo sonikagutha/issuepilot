@@ -2,16 +2,18 @@
 
 import re
 from collections.abc import Iterator
+from itertools import islice
 from contextlib import contextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from issuepilot.config import get_settings
+from issuepilot.discovery.suggestions import ISSUE_LABEL, LANGUAGES, LEVELS, Level, suggest_repos
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
 from issuepilot.graph.nodes.issue_investigation import investigate_issue
 from issuepilot.observability.trace_store import TraceStore
@@ -164,5 +166,63 @@ def dashboard(request: Request) -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
+def home(request: Request, level: str | None = None, lang: list[str] = Query(default=[])) -> HTMLResponse:
+    """Profile picker; once a level is chosen, suggested repos for it."""
+    chosen: Level = level if level in LEVELS else "beginner"
+    languages = [code for code in lang if code in LANGUAGES]
+    suggestions, fallback = [], False
+    if level is not None:
+        with GitHubClient(get_settings()) as client:
+            suggestions, fallback = suggest_repos(client, chosen, languages)
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        {
+            "active": "home",
+            "has_profile": level is not None,
+            "level": chosen,
+            "levels": LEVELS,
+            "languages": languages,
+            "all_languages": LANGUAGES,
+            "suggestions": suggestions,
+            "fallback": fallback,
+        },
+    )
+
+
+@app.get("/repo/{owner}/{repo}", response_class=HTMLResponse)
+def repo_page(request: Request, owner: str, repo: str, level: str | None = None) -> HTMLResponse:
+    """Open issues on one repo carrying the level's friendly label."""
+    chosen: Level = level if level in LEVELS else "beginner"
+    label = ISSUE_LABEL[chosen]
+    try:
+        with GitHubClient(get_settings()) as client:
+            raw_issues = list(islice(client.list_issues(owner, repo, labels=label), 30))
+    except GitHubNotFoundError as exc:
+        raise HTTPException(404, f"repository not found: {owner}/{repo}") from exc
+    except GitHubAPIError as exc:
+        raise HTTPException(502, f"GitHub error: {exc}") from exc
+
+    with _tracker() as tracker:
+        starred = {item.number for item in tracker.list() if item.repo == f"{owner}/{repo}"}
+    issues = [
+        {
+            "number": raw["number"],
+            "title": raw["title"],
+            "labels": [lbl["name"] for lbl in raw.get("labels", [])],
+            "comments": raw.get("comments", 0),
+            "html_url": raw["html_url"],
+            "starred": raw["number"] in starred,
+        }
+        for raw in raw_issues
+    ]
+    return templates.TemplateResponse(
+        request,
+        "repo.html",
+        {"active": "home", "repo": f"{owner}/{repo}", "label": label, "level": chosen, "issues": issues},
+    )
+
+
+@app.get("/analyze", response_class=HTMLResponse)
+def analyze_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "analyze.html", {"active": "analyze"})

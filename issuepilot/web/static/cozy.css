@@ -201,3 +201,40 @@ select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset:
 
 .link-btn { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; }
 .link-btn:hover { color: var(--terracotta); }
+
+/* --- home: profile picker --- */
+.profile { display: flex; flex-direction: column; gap: 16px; }
+.profile__group { border: 0; padding: 0; margin: 0; min-width: 0; }
+.profile__group legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
+.profile .btn { align-self: flex-start; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { position: relative; cursor: pointer; }
+.chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.chip span {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--paper);
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #fffdf8; }
+.chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin-top: -4px; }
+
+.repo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.repo-card { display: flex; flex-direction: column; margin: 0; color: var(--ink); text-decoration: none; transition: transform 0.15s ease; }
+.repo-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.repo-card__name { margin: 0 0 6px; font-size: 1.02rem; overflow-wrap: anywhere; }
+.repo-card__desc { margin: 0 0 10px; font-size: 0.92rem; flex: 1; }
+.repo-card__meta { margin: 0; font-size: 0.85rem; }
+
+/* --- repo page --- */
+.crumb { margin: 0 0 6px; font-size: 0.9rem; }
+.crumb a { text-decoration: none; }
+.badge--label { background: transparent; color: var(--muted); border: 1px solid var(--border); margin-left: 4px; font-weight: 600; }
+.issue-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px 20px; margin-bottom: 12px; }
+.issue-row__main { flex: 1 1 300px; min-width: 0; }
+.issue-row__actions { display: flex; gap: 8px; }
+.issue-row__actions .btn { text-decoration: none; padding: 8px 14px; }

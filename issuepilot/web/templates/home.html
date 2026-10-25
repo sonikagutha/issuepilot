@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}IssuePilot · find a cozy first contribution{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Pull up a chair. Let's find you an issue.</h1>
+  <p class="muted">Tell us where you are in your open-source journey, and we'll suggest friendly repositories to start with.</p>
+</section>
+
+<form id="profile-form" class="card profile" method="get" action="/">
+  <fieldset class="profile__group">
+    <legend>Your experience</legend>
+    <div class="chips">
+      {% for value in levels %}
+      <label class="chip">
+        <input type="radio" name="level" value="{{ value }}" {{ 'checked' if value == level }}>
+        <span>{{ value | capitalize }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="profile__group">
+    <legend>Languages you enjoy <span class="muted">(leave empty for any)</span></legend>
+    <div class="chips">
+      {% for code in all_languages %}
+      <label class="chip">
+        <input type="checkbox" name="lang" value="{{ code }}" {{ 'checked' if code in languages }}>
+        <span>{{ code | capitalize }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <button class="btn" type="submit">Show me repos</button>
+</form>
+
+{% if has_profile %}
+<section>
+  <h2 class="group__title">Suggested for you</h2>
+  {% if fallback %}
+  <p class="muted note">GitHub search is taking a nap right now, so here are some hand-picked favourites instead.</p>
+  {% endif %}
+  {% if suggestions %}
+  <div class="repo-grid">
+    {% for repo in suggestions %}
+    <a class="card repo-card" href="/repo/{{ repo.full_name }}?level={{ level }}">
+      <h3 class="repo-card__name">{{ repo.full_name }}</h3>
+      <p class="repo-card__desc">{{ repo.description or "No description yet." }}</p>
+      <p class="muted repo-card__meta">
+        {% if repo.language %}<span>{{ repo.language | capitalize }}</span> · {% endif %}<span>★ {{ "{:,}".format(repo.stars) }}</span>
+      </p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card empty"><p>Nothing matched those choices. Try another language?</p></div>
+  {% endif %}
+</section>
+{% else %}
+<div class="card empty">
+  <p>Already have an issue in mind?</p>
+  <a class="btn btn--ghost" href="/analyze">Analyze it directly</a>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/home.js"></script>{% endblock %}

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 import issuepilot.web.server as web_app
 from issuepilot.config import Settings
-from issuepilot.github.client import GitHubNotFoundError
+from issuepilot.github.client import GitHubAPIError, GitHubNotFoundError
 from issuepilot.github.models import Issue
 from issuepilot.models.issue_context import IssueContext, IssueContextAnalysis
 from issuepilot.web.targets import parse_target
@@ -42,6 +42,26 @@ class _FakeGitHubClient:
 
     def get_pull(self, owner: str, repo: str, number: int) -> dict:
         return {"number": number, "state": "closed", "merged": True}
+
+    def search_repositories(self, query: str, sort: str = "stars", per_page: int = 10) -> list[dict]:
+        return [
+            {
+                "full_name": "octo/hello",
+                "description": "A friendly repo",
+                "language": "Python",
+                "stargazers_count": 1234,
+                "html_url": "https://github.com/octo/hello",
+            }
+        ]
+
+    def list_issues(self, owner: str, repo: str, state: str = "open", per_page: int = 100, labels=None):
+        yield {
+            "number": 1,
+            "title": "Fix the thing",
+            "labels": [{"name": "good first issue"}],
+            "comments": 2,
+            "html_url": "https://github.com/octo/hello/issues/1",
+        }
 
 
 @pytest.fixture
@@ -127,8 +147,8 @@ def test_analyze_missing_llm_key_is_400(
     assert "ANTHROPIC_API_KEY is required" in r.json()["detail"]
 
 
-def test_index_renders_cozy_shell(client: TestClient) -> None:
-    r = client.get("/")
+def test_analyze_page_renders_cozy_shell(client: TestClient) -> None:
+    r = client.get("/analyze")
 
     assert r.status_code == 200
     assert '<link rel="stylesheet" href="/static/cozy.css"' in r.text
@@ -220,3 +240,76 @@ def test_dashboard_renders_tracked_issue(client: TestClient) -> None:
     assert "Fix the thing" in r.text
     assert "Working on it" in r.text
     assert 'href="/dashboard"' in r.text
+
+
+def test_home_without_profile_shows_picker(client: TestClient, fake_github: None) -> None:
+    r = client.get("/")
+
+    assert r.status_code == 200
+    assert 'id="profile-form"' in r.text
+    assert "repo-card" not in r.text
+    assert 'href="/analyze"' in r.text
+
+
+def test_home_shows_suggestions(client: TestClient, fake_github: None) -> None:
+    r = client.get("/?level=beginner&lang=python")
+
+    assert r.status_code == 200
+    assert "octo/hello" in r.text
+    assert 'href="/repo/octo/hello?level=beginner"' in r.text
+
+
+def test_home_unknown_level_defaults_to_beginner(client: TestClient, fake_github: None) -> None:
+    r = client.get("/?level=wizard&lang=python")
+
+    assert r.status_code == 200
+    assert 'href="/repo/octo/hello?level=beginner"' in r.text
+
+
+def test_home_fallback_note(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _RateLimited(_FakeGitHubClient):
+        def search_repositories(self, query: str, sort: str = "stars", per_page: int = 10) -> list[dict]:
+            raise GitHubAPIError(403, "rate limited")
+
+    monkeypatch.setattr(web_app, "GitHubClient", _RateLimited)
+
+    r = client.get("/?level=beginner&lang=rust")
+
+    assert r.status_code == 200
+    assert "rust-lang/rustlings" in r.text
+    assert "hand-picked" in r.text
+
+
+def test_repo_page_lists_issues(client: TestClient, fake_github: None) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    r = client.get("/repo/octo/hello?level=beginner")
+
+    assert r.status_code == 200
+    assert "Fix the thing" in r.text
+    assert 'href="/analyze?repo=octo/hello&amp;issue=1"' in r.text
+    assert "good first issue" in r.text
+    assert 'data-starred="true"' in r.text
+
+
+def test_repo_page_empty_state(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _NoIssues(_FakeGitHubClient):
+        def list_issues(self, *args, **kwargs):
+            return iter(())
+
+    monkeypatch.setattr(web_app, "GitHubClient", _NoIssues)
+
+    r = client.get("/repo/octo/hello?level=beginner")
+
+    assert r.status_code == 200
+    assert "No open" in r.text
+
+
+def test_repo_page_not_found(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Missing(_FakeGitHubClient):
+        def list_issues(self, *args, **kwargs):
+            raise GitHubNotFoundError(404, "not found")
+
+    monkeypatch.setattr(web_app, "GitHubClient", _Missing)
+
+    assert client.get("/repo/octo/nope").status_code == 404

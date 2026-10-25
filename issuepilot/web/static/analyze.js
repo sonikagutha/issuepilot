@@ -75,7 +75,9 @@ function renderError(message) {
     el("span", { text: message }));
 }
 
-document.getElementById("analyze-form").addEventListener("submit", async (e) => {
+const form = document.getElementById("analyze-form");
+
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const out = document.getElementById("out");
   const btn = document.getElementById("go");
@@ -103,3 +105,14 @@ document.getElementById("analyze-form").addEventListener("submit", async (e) => 
     btn.disabled = false;
   }
 });
+
+// Coming from a repo page: /analyze?repo=owner/repo&issue=N prefills the
+// form and runs the analysis straight away.
+const params = new URLSearchParams(location.search);
+if (params.get("repo")) {
+  document.getElementById("repo").value = params.get("repo");
+  if (params.get("issue")) {
+    document.getElementById("issue").value = params.get("issue");
+    form.requestSubmit();
+  }
+}

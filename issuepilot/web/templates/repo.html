@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ repo }} · IssuePilot{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="muted crumb"><a href="/">← Back to suggestions</a></p>
+  <h1>{{ repo }}</h1>
+  <p class="muted">Open issues labelled <span class="badge badge--label">{{ label }}</span>. Pick one that sounds fun.</p>
+</section>
+
+{% if issues %}
+{% for issue in issues %}
+<article class="card issue-row" data-repo="{{ repo }}" data-number="{{ issue.number }}"
+         data-title="{{ issue.title }}" data-url="{{ issue.html_url }}" data-starred="{{ 'true' if issue.starred else 'false' }}">
+  <div class="issue-row__main">
+    <h3 class="tracked__title"><a href="{{ issue.html_url }}" target="_blank" rel="noopener">{{ issue.title }}</a></h3>
+    <p class="muted tracked__meta">
+      #{{ issue.number }} · 💬 {{ issue.comments }}
+      {% for name in issue.labels %}<span class="badge badge--label">{{ name }}</span>{% endfor %}
+    </p>
+  </div>
+  <div class="issue-row__actions">
+    <a class="btn" href="/analyze?repo={{ repo }}&amp;issue={{ issue.number }}">Analyze</a>
+    <button class="btn btn--ghost star-btn js-star" type="button"></button>
+  </div>
+</article>
+{% endfor %}
+{% else %}
+<div class="card empty">
+  <p>No open "{{ label }}" issues here right now.</p>
+  <a class="btn btn--ghost" href="/analyze?repo={{ repo }}">Analyze any issue in {{ repo }}</a>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/repo.js"></script>{% endblock %}
