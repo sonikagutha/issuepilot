@@ -536,35 +536,35 @@ def linked_profile(client: TestClient, fake_github: None, monkeypatch: pytest.Mo
     client.post("/api/profile", json={"username": "octocat"})
 
 
-def test_untracked_pr_offers_track_dropdown(client: TestClient, linked_profile: None) -> None:
+def _group(page: str, status: str) -> str:
+    """HTML of one collapsible status section on the dashboard."""
+    start = page.index(f'<details class="group group--{status}"')
+    return page[start : page.index("</details>", start)]
+
+
+def test_dashboard_sections_start_collapsed(client: TestClient) -> None:
     page = client.get("/dashboard").text
 
-    assert 'class="js-pr-status pr-status pr-status--none"' in page
-    assert "Track…" in page
-    assert 'data-tracked="false"' in page
+    for status in ("starred", "working", "pr_opened", "merged", "dropped"):
+        assert f'<details class="group group--{status}">' in page  # no `open` attribute
 
 
-def test_pr_linked_to_tracked_issue_shows_its_status(client: TestClient, linked_profile: None) -> None:
+def test_merged_github_pr_lands_in_merged_section(client: TestClient, linked_profile: None) -> None:
+    page = client.get("/dashboard").text
+
+    assert "Fix parser" in _group(page, "merged")
+    assert "Fix parser" not in _group(page, "pr_opened")
+    assert 'data-count="merged">1<' in page
+
+
+def test_tracked_issue_moves_to_merged_when_its_pr_merges(client: TestClient, linked_profile: None) -> None:
     client.post(ISSUE_PATH, json=STAR_BODY)
     client.patch(ISSUE_PATH, json={"status": "working", "pr_url": "https://github.com/octo/hello/pull/12"})
 
     page = client.get("/dashboard").text
 
-    assert "fixes octo/hello#1" in page
-    assert 'class="js-pr-status pr-status pr-status--working"' in page
-    assert 'data-number="1"' in page
-    assert 'data-tracked="true"' in page
-
-
-def test_pr_tracked_directly_by_its_own_number(client: TestClient, linked_profile: None) -> None:
-    client.post(
-        "/api/tracked/octo/hello/12",
-        json={"title": "Fix parser", "html_url": "https://github.com/octo/hello/pull/12"},
-    )
-    client.patch("/api/tracked/octo/hello/12", json={"status": "merged"})
-
-    page = client.get("/dashboard").text
-
-    assert 'class="js-pr-status pr-status pr-status--merged"' in page
-    assert "fixes" not in page
-    assert 'data-tracked="true"' in page
+    assert "Fix the thing" in _group(page, "merged")
+    assert "Fix parser" not in page  # shown once, as the tracked issue it fixes
+    item = client.get("/api/tracked").json()["items"][0]
+    assert item["status"] == "merged"
+    assert item["pr_state"] == "merged"

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from issuepilot.config import Provider, get_settings
 from issuepilot.discovery.suggestions import ISSUE_LABEL, LANGUAGES, LEVELS, Level, suggest_repos
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
-from issuepilot.github.profile import ProfileOverview, load_profile_overview
+from issuepilot.github.profile import ProfileOverview, PullRequestSummary, load_profile_overview
 from issuepilot.graph.pipeline import run_pipeline
 from issuepilot.llm.factory import PROVIDER_NAMES, available_providers, model_label
 from issuepilot.observability.trace_store import TraceStore
@@ -181,12 +181,26 @@ def sync_pr(owner: str, repo: str, number: int) -> TrackedIssue:
             raise HTTPException(502, f"GitHub error: {exc}") from exc
 
         pr_state = "merged" if pull.get("merged") else pull["state"]
-        status: Status | None = None
-        if pr_state == "merged":
-            status = "merged"
-        elif pr_state == "open" and item.status in ("starred", "working"):
-            status = "pr_opened"
-        return tracker.update(f"{owner}/{repo}", number, pr_state=pr_state, status=status)
+        return tracker.update(
+            f"{owner}/{repo}", number, pr_state=pr_state, status=_status_for_pr(pr_state, item.status)
+        )
+
+
+def _status_for_pr(pr_state: str, current: Status) -> Status | None:
+    """The status a tracked issue should move to given its PR's state, or None to leave it.
+
+    A closed-but-unmerged PR doesn't decide anything on its own (the
+    contributor may reopen it or try again), so only merged/open advance.
+    """
+    if pr_state == "merged":
+        return "merged" if current != "merged" else None
+    if pr_state == "open" and current in ("starred", "working"):
+        return "pr_opened"
+    return None
+
+
+# Where an untracked GitHub PR of yours belongs on the dashboard.
+_UNTRACKED_PR_STATUS: dict[str, Status] = {"merged": "merged", "open": "pr_opened", "closed": "dropped"}
 
 
 @app.post("/api/profile")
@@ -213,9 +227,6 @@ def unlink_profile() -> Response:
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
-    with _tracker() as tracker:
-        items = tracker.list()
-        counts = tracker.counts()
     with _profile_store() as store:
         username = store.get_username()
 
@@ -228,39 +239,52 @@ def dashboard(request: Request) -> HTMLResponse:
         except GitHubAPIError:
             profile_error = True  # the rest of the dashboard is local and still useful
 
+    with _tracker() as tracker:
+        github_prs = _sync_with_pull_requests(tracker, overview) if overview else []
+        items = tracker.list()
+
+    # Every section holds tracked issues plus your untracked GitHub PRs,
+    # sorted automatically by PR state.
     groups = {status: [i for i in items if i.status == status] for status in STATUS_LABELS}
-    pr_links = _link_pull_requests(overview, items) if overview else {}
+    pr_groups = {status: [pr for pr in github_prs if _UNTRACKED_PR_STATUS[pr.state] == status] for status in STATUS_LABELS}
+    counts = {status: len(groups[status]) + len(pr_groups[status]) for status in STATUS_LABELS}
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "active": "dashboard",
             "groups": groups,
+            "pr_groups": pr_groups,
             "counts": counts,
             "labels": STATUS_LABELS,
-            "total": len(items),
+            "total": sum(counts.values()),
             "username": username,
             "overview": overview,
             "profile_error": profile_error,
-            "pr_links": pr_links,
         },
     )
 
 
-def _link_pull_requests(overview: ProfileOverview, items: list[TrackedIssue]) -> dict[str, TrackedIssue]:
-    """Map each recent PR's URL to the tracked item it belongs to.
+def _sync_with_pull_requests(tracker: Tracker, overview: ProfileOverview) -> list[PullRequestSummary]:
+    """Advance tracked issues whose PR state changed; return PRs not tracked at all.
 
-    A tracked issue whose pr_url is this PR wins (the PR is that issue's
-    fix); otherwise the PR may be tracked directly under its own number.
+    A tracked issue whose pr_url is one of your PRs (or a PR tracked under
+    its own number) follows that PR: merged → Merged, open → PR opened.
     """
+    items = tracker.list()
     by_pr_url = {item.pr_url.rstrip("/"): item for item in items if item.pr_url}
     by_key = {(item.repo, item.number): item for item in items}
-    links: dict[str, TrackedIssue] = {}
+
+    untracked: list[PullRequestSummary] = []
     for pr in overview.pull_requests:
         item = by_pr_url.get(pr.html_url.rstrip("/")) or by_key.get((pr.repo, pr.number))
-        if item is not None:
-            links[pr.html_url] = item
-    return links
+        if item is None:
+            untracked.append(pr)
+            continue
+        status = _status_for_pr(pr.state, item.status)
+        if status is not None or item.pr_state != pr.state:
+            tracker.update(item.repo, item.number, pr_state=pr.state, status=status, pr_url=item.pr_url or pr.html_url)
+    return untracked
 
 
 @app.get("/", response_class=HTMLResponse)

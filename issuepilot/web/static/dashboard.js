@@ -71,30 +71,17 @@ if (unlink) {
   });
 }
 
-// Recent pull requests: the status dropdown tracks the PR on the shelf, or
-// updates the tracked issue it fixes. Reload so cards and counts regroup.
-document.querySelectorAll(".pr-list__item").forEach((row) => {
-  const select = row.querySelector(".js-pr-status");
-  const path = `/api/tracked/${row.dataset.repo}/${row.dataset.number}`;
-  const json = (method, body) =>
-    fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-
-  select.addEventListener("change", async () => {
-    const value = select.value;
-    if (!value) return;
-    select.disabled = true;
-
-    let ok;
-    if (value === "__remove") {
-      ok = (await fetch(path, { method: "DELETE" })).ok;
-    } else if (row.dataset.tracked === "true") {
-      ok = (await json("PATCH", { status: value })).ok;
-    } else {
-      ok = (await json("POST", { title: row.dataset.title, html_url: row.dataset.url })).ok
-        && (await json("PATCH", { status: value, pr_url: row.dataset.url })).ok;
-    }
-
-    if (ok) location.reload();
-    else select.disabled = false;
+// Sections start collapsed; remember which ones you opened so a status
+// change (which reloads the page) doesn't fold everything back up.
+const OPEN_KEY = "issuepilot.openSections";
+let openSections = [];
+try { openSections = JSON.parse(sessionStorage.getItem(OPEN_KEY)) || []; } catch {}
+document.querySelectorAll("details.group").forEach((section) => {
+  const status = [...section.classList].find((c) => c.startsWith("group--"));
+  if (openSections.includes(status)) section.open = true;
+  section.addEventListener("toggle", () => {
+    openSections = openSections.filter((s) => s !== status);
+    if (section.open) openSections.push(status);
+    try { sessionStorage.setItem(OPEN_KEY, JSON.stringify(openSections)); } catch {}
   });
 });

@@ -4,7 +4,7 @@
 <section class="hero">
   <span class="eyebrow">📚 Dashboard</span>
   <h1>Your contribution shelf</h1>
-  <p class="muted">Everything you've starred, from "maybe later" to merged.</p>
+  <p class="muted">Everything you've starred and every PR you've opened, sorted automatically from "maybe later" to merged.</p>
 </section>
 
 {% if overview %}
@@ -36,35 +36,6 @@
     <div class="calendar__legend muted">Less {% for level in range(5) %}<span class="dot dot--{{ level }}"></span>{% endfor %} More</div>
   </div>
 
-  {% if overview.pull_requests %}
-  <h3>Your recent pull requests</h3>
-  <ul class="pr-list">
-    {% for pr in overview.pull_requests %}
-    {% set linked = pr_links.get(pr.html_url) %}
-    <li class="pr-list__item"
-        data-repo="{{ linked.repo if linked else pr.repo }}"
-        data-number="{{ linked.number if linked else pr.number }}"
-        data-title="{{ pr.title }}" data-url="{{ pr.html_url }}"
-        data-tracked="{{ 'true' if linked else 'false' }}">
-      <div class="pr-list__main">
-        <span class="badge badge--pr-{{ pr.state }}">{{ pr.state }}</span>
-        <a href="{{ pr.html_url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
-        <span class="muted">{{ pr.repo }} #{{ pr.number }}</span>
-        {% if linked and (linked.repo, linked.number) != (pr.repo, pr.number) %}
-        <span class="muted pr-list__link">↳ fixes {{ linked.repo }}#{{ linked.number }}</span>
-        {% endif %}
-      </div>
-      <select class="js-pr-status pr-status pr-status--{{ linked.status if linked else 'none' }}" aria-label="Track this pull request">
-        {% if not linked %}<option value="" selected>Track…</option>{% endif %}
-        {% for value, label in labels.items() %}
-        <option value="{{ value }}"{{ ' selected' if linked and linked.status == value }}>{{ label }}</option>
-        {% endfor %}
-        {% if linked %}<option value="__remove">Remove from shelf</option>{% endif %}
-      </select>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
 </section>
 {% elif username %}
 <div class="card note-card">
@@ -75,7 +46,7 @@
 <form class="card profile-link" id="profile-link-form">
   <div>
     <h2>🌱 Connect your GitHub</h2>
-    <p class="muted">See your contribution graph and recent pull requests right next to the issues you're tracking.</p>
+    <p class="muted">See your contribution graph, and have your pull requests sorted onto the shelf automatically: merged, open or closed.</p>
   </div>
   <div class="profile-link__row">
     <label class="field field--grow">
@@ -91,7 +62,7 @@
 <div class="stats">
   {% for status, label in labels.items() %}
   <div class="stat stat--{{ status }}">
-    <span class="stat__count">{{ counts[status] }}</span>
+    <span class="stat__count" data-count="{{ status }}">{{ counts[status] }}</span>
     <span class="stat__label">{{ label }}</span>
   </div>
   {% endfor %}
@@ -106,9 +77,20 @@
 </div>
 {% endif %}
 
-{% for status, items in groups.items() if items %}
-<section class="group">
-  <h2 class="group__title">{{ labels[status] }} <span class="muted">· {{ items | length }}</span></h2>
+{% set icons = {'starred': '⭐', 'working': '🛠️', 'pr_opened': '📬', 'merged': '🎉', 'dropped': '🍂'} %}
+{% for status, items in groups.items() %}
+{% set prs = pr_groups[status] %}
+<details class="group group--{{ status }}">
+  <summary class="group__summary">
+    <span class="group__icon">{{ icons[status] }}</span>
+    <span class="group__name">{{ labels[status] }}</span>
+    <span class="group__count">{{ counts[status] }}</span>
+    <span class="group__chevron" aria-hidden="true">▾</span>
+  </summary>
+  <div class="group__body">
+  {% if not items and not prs %}
+    <p class="muted group__empty">Nothing here yet.</p>
+  {% endif %}
   {% for item in items %}
   <article class="card tracked" data-repo="{{ item.repo }}" data-number="{{ item.number }}">
     <div class="tracked__head">
@@ -117,6 +99,7 @@
         <p class="muted tracked__meta">
           {{ item.repo }} #{{ item.number }}
           {% if item.difficulty %}<span class="badge badge--{{ {'Easy': 'easy', 'Medium': 'medium', 'Difficult': 'hard'}[item.difficulty] }}">{{ item.difficulty }}</span>{% endif %}
+          {% if item.pr_state %}<span class="badge badge--pr-{{ item.pr_state }}">PR {{ item.pr_state }}</span>{% endif %}
         </p>
       </div>
       <select class="js-status" aria-label="Status">
@@ -137,7 +120,6 @@
         <input class="js-pr-url" value="{{ item.pr_url or '' }}" placeholder="https://github.com/owner/repo/pull/123">
       </label>
       <button class="btn btn--ghost js-sync" type="button">Check PR status</button>
-      {% if item.pr_state %}<span class="badge badge--pr-{{ item.pr_state }}">PR {{ item.pr_state }}</span>{% endif %}
     </div>
 
     <div class="tracked__foot">
@@ -146,7 +128,22 @@
     </div>
   </article>
   {% endfor %}
-</section>
+  {% if prs %}
+  <ul class="pr-list">
+    {% for pr in prs %}
+    <li class="pr-list__item">
+      <div class="pr-list__main">
+        <span class="badge badge--pr-{{ pr.state }}">{{ pr.state }}</span>
+        <a href="{{ pr.html_url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
+        <span class="muted">{{ pr.repo }} #{{ pr.number }}</span>
+      </div>
+      <span class="muted pr-list__source">from GitHub</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  </div>
+</details>
 {% endfor %}
 {% endblock %}
 {% block scripts %}<script src="/static/dashboard.js"></script>{% endblock %}

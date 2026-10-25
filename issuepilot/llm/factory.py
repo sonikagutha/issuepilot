@@ -87,7 +87,10 @@ def build_chat_model(settings: Settings | None = None, *, temperature: float = 0
     if settings.llm_provider == "gemma":
         # Gemma 4 on the Gemini API supports system prompts and json_schema
         # structured output (LangChain's default for this client), so the
-        # nodes need no Gemma-specific handling.
+        # nodes need no Gemma-specific handling. It always "thinks" before
+        # answering (thinking budget/level are rejected for this model), so
+        # calls take 30-90s: allow a long timeout but at most one retry, or
+        # silent retries stack into many minutes.
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is required when LLM_PROVIDER=gemma")
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -96,7 +99,8 @@ def build_chat_model(settings: Settings | None = None, *, temperature: float = 0
             model=settings.gemma_model,
             google_api_key=settings.google_api_key,
             temperature=temperature,
-            timeout=120.0,
+            timeout=180.0,
+            max_retries=1,
         )
 
     raise ValueError(f"unknown LLM provider: {settings.llm_provider}")

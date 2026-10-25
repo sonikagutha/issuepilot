@@ -59,7 +59,7 @@ class ProfileOverview(BaseModel):
     pull_requests: list[PullRequestSummary]
 
 
-def load_profile_overview(client: GitHubClient, login: str, *, pr_limit: int = 8) -> ProfileOverview:
+def load_profile_overview(client: GitHubClient, login: str, *, pr_limit: int = 30) -> ProfileOverview:
     """Profile, past-year contribution calendar and recent PRs for one user."""
     user = client.get_user(login)
     profile = GitHubProfile(

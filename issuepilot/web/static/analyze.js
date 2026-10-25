@@ -124,7 +124,13 @@ form.addEventListener("submit", async (e) => {
   const out = document.getElementById("out");
   const btn = document.getElementById("go");
   btn.disabled = true;
-  out.replaceChildren(el("p", { className: "loading", text: "Brewing your analysis… ☕ (two agents: investigation, then complexity)" }));
+  const slow = document.getElementById("provider")?.value === "gemma";
+  out.replaceChildren(el("p", {
+    className: "loading",
+    text: slow
+      ? "Brewing your analysis on Gemma 4… ☕ Gemma thinks before it answers, so this can take 1-3 minutes."
+      : "Brewing your analysis… ☕ (two agents: investigation, then complexity)",
+  }));
 
   try {
     const r = await fetch("/api/analyze", {
