@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}IssuePilot · find a cozy first contribution{% endblock %}
 {% block content %}
+<div class="home-top">
 <section class="hero">
   <span class="eyebrow">☕ For first-time &amp; returning contributors</span>
   <h1>Pull up a chair.<br>Let's find you an issue.</h1>
@@ -32,8 +33,9 @@
   </fieldset>
   <button class="btn" id="profile-submit" type="submit">Show me repos →</button>
 </form>
+</div>
 
-<section id="suggestions">
+<section id="suggestions" class="home-suggestions">
 {% if has_profile %}
   <div class="section-title">
     <h2>Suggested for you</h2>

@@ -554,3 +554,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   font-weight: 700;
   color: var(--muted);
 }
+
+/* --- home: fit hero, picker and suggestions on one screen --- */
+.home-top { display: grid; gap: 0 32px; align-items: center; }
+.home-suggestions .section-title { margin: 20px 0 12px; }
+.home-suggestions .repo-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.home-suggestions .repo-card { padding: 14px 16px; gap: 8px; }
+.home-suggestions .avatar { width: 34px; height: 34px; border-radius: 10px; }
+.home-suggestions .repo-card__desc { -webkit-line-clamp: 2; font-size: 0.88rem; }
+.home-suggestions .skeleton { height: 128px; }
+
+@media (min-width: 900px) {
+  .home-top { grid-template-columns: 1fr 1.1fr; }
+  .home-top .hero { margin: 24px 0 18px; }
+  .home-top .hero h1 { font-size: 2.3rem; }
+  .home-top .hero p { font-size: 1rem; }
+  .home-top .profile { margin: 24px 0 18px; padding: 18px 20px; gap: 12px; }
+  .home-top .profile__group legend { margin-bottom: 8px; }
+  .home-top .chip span { padding: 5px 12px; font-size: 0.92rem; }
+}
