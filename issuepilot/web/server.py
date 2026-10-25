@@ -1,15 +1,14 @@
 """Minimal local web UI for the Issue Investigation Agent."""
 
-import re
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from issuepilot.config import get_settings
-from issuepilot.github.client import GitHubAPIError, GitHubClient
+from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
 from issuepilot.graph.nodes.issue_investigation import investigate_issue
 from issuepilot.observability.trace_store import TraceStore
+from issuepilot.web.targets import parse_target
 
 app = FastAPI(title="IssuePilot")
 
@@ -17,24 +16,6 @@ app = FastAPI(title="IssuePilot")
 class AnalyzeRequest(BaseModel):
     repo: str
     issue: int | None = None
-
-
-_REPO_RE = re.compile(
-    r"^(?:https?://)?(?:www\.)?(?:github\.com/)?"
-    r"(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?"
-    r"(?:/(?:issues|pull)/(?P<issue>\d+))?/?(?:[?#].*)?$"
-)
-
-
-def parse_target(repo: str, issue: int | None) -> tuple[str, str, int]:
-    """Accept `owner/repo` or a full GitHub issue/repo URL."""
-    m = _REPO_RE.match(repo.strip())
-    if not m:
-        raise HTTPException(400, f"expected owner/repo or a GitHub issue URL, got: {repo}")
-    number = issue or (int(m["issue"]) if m["issue"] else None)
-    if number is None:
-        raise HTTPException(400, "issue number is required")
-    return m["owner"], m["repo"], number
 
 
 @app.post("/api/analyze")
@@ -45,6 +26,8 @@ def analyze(req: AnalyzeRequest) -> dict:
     try:
         with GitHubClient(settings) as client:
             gh_issue = client.fetch_issue(owner, repo_name, issue_number)
+    except GitHubNotFoundError as exc:
+        raise HTTPException(404, f"not found on GitHub: {owner}/{repo_name}#{issue_number}") from exc
     except GitHubAPIError as exc:
         raise HTTPException(502, f"GitHub error: {exc}") from exc
 
@@ -60,6 +43,7 @@ def analyze(req: AnalyzeRequest) -> dict:
     return {
         "title": gh_issue.title,
         "number": gh_issue.number,
+        "html_url": gh_issue.html_url,
         "repo": f"{owner}/{repo_name}",
         "summary": analysis.summary,
         "stated_requirements": analysis.stated_requirements,
