@@ -1,10 +1,13 @@
 import typer
+from rich.console import Console
+from rich.panel import Panel
 
 app = typer.Typer(
     name="issuepilot",
     help="Agentic GitHub issue triage and recommendation.",
     no_args_is_help=True,
 )
+console = Console()
 
 
 @app.command()
@@ -20,8 +23,63 @@ def analyze(
     repo: str = typer.Argument(..., help="owner/repository"),
     issue: int = typer.Option(..., "--issue", help="Issue number to analyze"),
 ) -> None:
-    """Analyze a single GitHub issue (M1 vertical slice)."""
-    typer.echo(f"analyze {repo}#{issue} — not implemented yet")
+    """Run the Issue Investigation Agent on a single issue (M1 vertical slice).
+
+    Repository/History Investigation and Complexity Analysis aren't wired
+    in yet — this currently prints the issue-only analysis.
+    """
+    from issuepilot.config import get_settings
+    from issuepilot.github.client import GitHubAPIError, GitHubClient
+    from issuepilot.graph.nodes.issue_investigation import investigate_issue
+    from issuepilot.observability.trace_store import TraceStore
+
+    if "/" not in repo:
+        console.print(f"[red]error:[/red] expected owner/repository, got: {repo}")
+        raise typer.Exit(1)
+    owner, repo_name = repo.split("/", 1)
+
+    settings = get_settings()
+
+    try:
+        with GitHubClient(settings) as client:
+            gh_issue = client.fetch_issue(owner, repo_name, issue)
+    except GitHubAPIError as exc:
+        console.print(f"[red]GitHub error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+
+    trace_store = TraceStore(settings.trace_db_path)
+    try:
+        context = investigate_issue(gh_issue, settings=settings, trace_store=trace_store)
+    except ValueError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    finally:
+        trace_store.close()
+
+    analysis = context.analysis
+    console.print(Panel(f"[bold]{gh_issue.title}[/bold]\n#{gh_issue.number} · {repo}", title="Issue"))
+    console.print(f"[bold]Summary:[/bold] {analysis.summary}\n")
+
+    if analysis.stated_requirements:
+        console.print("[bold]Stated requirements:[/bold]")
+        for item in analysis.stated_requirements:
+            console.print(f"  • {item}")
+
+    if analysis.likely_relevant_paths:
+        console.print("\n[bold]Likely relevant paths:[/bold]")
+        for item in analysis.likely_relevant_paths:
+            console.print(f"  • {item}")
+
+    if analysis.ambiguities:
+        console.print("\n[bold]Ambiguities:[/bold]")
+        for item in analysis.ambiguities:
+            console.print(f"  • {item}")
+
+    if context.referenced_numbers:
+        refs = ", ".join(f"#{n}" for n in context.referenced_numbers)
+        console.print(f"\n[bold]Referenced issues/PRs:[/bold] {refs}")
+
+    console.print(f"\n[dim]{analysis.reasoning}[/dim]")
 
 
 if __name__ == "__main__":

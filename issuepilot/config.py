@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     langchain_project: str = "issuepilot"
 
     cache_db_path: Path = Path(".issuepilot/cache.db")
+    trace_db_path: Path = Path(".issuepilot/traces.db")
 
 
 _settings: Settings | None = None
