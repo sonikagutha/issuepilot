@@ -82,5 +82,17 @@ def analyze(
     console.print(f"\n[dim]{analysis.reasoning}[/dim]")
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Host to bind"),
+    port: int = typer.Option(8000, help="Port to listen on"),
+) -> None:
+    """Start the local web UI."""
+    import uvicorn
+
+    console.print(f"IssuePilot web UI: [bold]http://{host}:{port}[/bold]")
+    uvicorn.run("issuepilot.web:app", host=host, port=port)
+
+
 if __name__ == "__main__":
     app()
