@@ -1,0 +1,45 @@
+# Complexity rubric: each dimension is scored 1-5 by the Complexity
+# Analysis Agent. The overall score is a weighted average of the six
+# dimensions, mapped to a difficulty label via the thresholds below.
+# Weights don't need to sum to 1 — they're normalized at scoring time —
+# but keeping them summed to 1 makes them easy to read as percentages.
+
+dimensions:
+  code_complexity:
+    weight: 0.20
+    description: >
+      How intricate is the code that needs to change? Simple, isolated
+      logic scores low; deeply nested, stateful, or algorithmically
+      subtle code scores high.
+  components_affected:
+    weight: 0.15
+    description: >
+      How many distinct modules/services/layers does this issue touch?
+      A single file scores low; cross-cutting changes score high.
+  required_technical_knowledge:
+    weight: 0.20
+    description: >
+      How much domain or framework expertise does a contributor need
+      before they can even start? Generic skills score low; deep
+      familiarity with this codebase's internals scores high.
+  testing_complexity:
+    weight: 0.15
+    description: >
+      How hard is it to verify the fix is correct? A straightforward
+      unit test scores low; integration/E2E/manual verification scores
+      high.
+  dependencies:
+    weight: 0.10
+    description: >
+      Does this issue block on other issues, external libraries, or
+      unreleased APIs? None scores low; hard external blockers score
+      high.
+  requirement_ambiguity:
+    weight: 0.20
+    description: >
+      How well-specified is the issue itself? A precise repro/spec
+      scores low; a vague, underspecified ask scores high.
+
+thresholds:
+  easy_max: 2.0
+  medium_max: 3.5
