@@ -13,11 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from issuepilot.config import get_settings
+from issuepilot.config import Provider, get_settings
 from issuepilot.discovery.suggestions import ISSUE_LABEL, LANGUAGES, LEVELS, Level, suggest_repos
 from issuepilot.github.client import GitHubAPIError, GitHubClient, GitHubNotFoundError
 from issuepilot.github.profile import ProfileOverview, load_profile_overview
 from issuepilot.graph.pipeline import run_pipeline
+from issuepilot.llm.factory import PROVIDER_NAMES, available_providers, model_label
 from issuepilot.observability.trace_store import TraceStore
 from issuepilot.rubric.scoring import Difficulty
 from issuepilot.storage.profile import ProfileStore
@@ -37,6 +38,7 @@ _PR_URL_RE = re.compile(r"^https?://(?:www\.)?github\.com/(?P<owner>[\w.-]+)/(?P
 class AnalyzeRequest(BaseModel):
     repo: str
     issue: int | None = None
+    provider: Provider | None = None
 
 
 class StarRequest(BaseModel):
@@ -78,6 +80,11 @@ def analyze(req: AnalyzeRequest) -> dict:
     owner, repo_name, issue_number = parse_target(req.repo, req.issue)
 
     settings = get_settings()
+    if req.provider and req.provider != settings.llm_provider:
+        if req.provider not in available_providers(settings):
+            raise HTTPException(400, f"{PROVIDER_NAMES[req.provider]} is not configured: add its API key to .env")
+        # A copy, so one request's choice never changes the process-wide default.
+        settings = settings.model_copy(update={"llm_provider": req.provider})
     try:
         with GitHubClient(settings) as client:
             gh_issue = client.fetch_issue(owner, repo_name, issue_number)
@@ -103,6 +110,7 @@ def analyze(req: AnalyzeRequest) -> dict:
     analysis = context.analysis
     return {
         "starred": starred,
+        "model": model_label(settings),
         "title": gh_issue.title,
         "number": gh_issue.number,
         "html_url": gh_issue.html_url,
@@ -221,6 +229,7 @@ def dashboard(request: Request) -> HTMLResponse:
             profile_error = True  # the rest of the dashboard is local and still useful
 
     groups = {status: [i for i in items if i.status == status] for status in STATUS_LABELS}
+    pr_links = _link_pull_requests(overview, items) if overview else {}
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -233,8 +242,25 @@ def dashboard(request: Request) -> HTMLResponse:
             "username": username,
             "overview": overview,
             "profile_error": profile_error,
+            "pr_links": pr_links,
         },
     )
+
+
+def _link_pull_requests(overview: ProfileOverview, items: list[TrackedIssue]) -> dict[str, TrackedIssue]:
+    """Map each recent PR's URL to the tracked item it belongs to.
+
+    A tracked issue whose pr_url is this PR wins (the PR is that issue's
+    fix); otherwise the PR may be tracked directly under its own number.
+    """
+    by_pr_url = {item.pr_url.rstrip("/"): item for item in items if item.pr_url}
+    by_key = {(item.repo, item.number): item for item in items}
+    links: dict[str, TrackedIssue] = {}
+    for pr in overview.pull_requests:
+        item = by_pr_url.get(pr.html_url.rstrip("/")) or by_key.get((pr.repo, pr.number))
+        if item is not None:
+            links[pr.html_url] = item
+    return links
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -311,7 +337,13 @@ def repo_page(request: Request, owner: str, repo: str, level: str | None = None)
 
 @app.get("/analyze", response_class=HTMLResponse)
 def analyze_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "analyze.html", {"active": "analyze"})
+    settings = get_settings()
+    providers = [(p, PROVIDER_NAMES[p]) for p in available_providers(settings)]
+    return templates.TemplateResponse(
+        request,
+        "analyze.html",
+        {"active": "analyze", "providers": providers, "default_provider": settings.llm_provider},
+    )
 
 
 def _ago(timestamp: str | None) -> str | None:

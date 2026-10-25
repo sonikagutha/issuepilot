@@ -40,10 +40,27 @@
   <h3>Your recent pull requests</h3>
   <ul class="pr-list">
     {% for pr in overview.pull_requests %}
-    <li class="pr-list__item">
-      <span class="badge badge--pr-{{ pr.state }}">{{ pr.state }}</span>
-      <a href="{{ pr.html_url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
-      <span class="muted">{{ pr.repo }} #{{ pr.number }}</span>
+    {% set linked = pr_links.get(pr.html_url) %}
+    <li class="pr-list__item"
+        data-repo="{{ linked.repo if linked else pr.repo }}"
+        data-number="{{ linked.number if linked else pr.number }}"
+        data-title="{{ pr.title }}" data-url="{{ pr.html_url }}"
+        data-tracked="{{ 'true' if linked else 'false' }}">
+      <div class="pr-list__main">
+        <span class="badge badge--pr-{{ pr.state }}">{{ pr.state }}</span>
+        <a href="{{ pr.html_url }}" target="_blank" rel="noopener">{{ pr.title }}</a>
+        <span class="muted">{{ pr.repo }} #{{ pr.number }}</span>
+        {% if linked and (linked.repo, linked.number) != (pr.repo, pr.number) %}
+        <span class="muted pr-list__link">↳ fixes {{ linked.repo }}#{{ linked.number }}</span>
+        {% endif %}
+      </div>
+      <select class="js-pr-status pr-status pr-status--{{ linked.status if linked else 'none' }}" aria-label="Track this pull request">
+        {% if not linked %}<option value="" selected>Track…</option>{% endif %}
+        {% for value, label in labels.items() %}
+        <option value="{{ value }}"{{ ' selected' if linked and linked.status == value }}>{{ label }}</option>
+        {% endfor %}
+        {% if linked %}<option value="__remove">Remove from shelf</option>{% endif %}
+      </select>
     </li>
     {% endfor %}
   </ul>

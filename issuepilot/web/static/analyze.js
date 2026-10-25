@@ -45,6 +45,7 @@ function renderResult(d) {
     ...refs,
     el("h3", { text: "🧠 Reasoning" }),
     el("p", { className: "muted reasoning", text: d.reasoning }),
+    el("p", { className: "model-chip", text: `🤖 Analyzed by ${d.model}` }),
   );
 }
 
@@ -132,6 +133,7 @@ form.addEventListener("submit", async (e) => {
       body: JSON.stringify({
         repo: document.getElementById("repo").value,
         issue: Number(document.getElementById("issue").value) || null,
+        provider: document.getElementById("provider")?.value || null,
       }),
     });
     const d = await r.json().catch(() => ({}));

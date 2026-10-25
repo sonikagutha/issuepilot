@@ -5,7 +5,7 @@
 <section class="hero">
   <span class="eyebrow">✨ Issue Investigation Agent</span>
   <h1>Understand an issue before you dive in</h1>
-  <p class="muted">Paste a GitHub issue and we'll read it closely for you: what it asks for, where it lives, and what's still unclear.</p>
+  <p class="muted">Paste a GitHub issue and two AI agents will read it closely for you: what it asks for, what's still unclear, and how hard it really is. Runs on Gemini or Google's open Gemma models.</p>
 </section>
 
 <form id="analyze-form" class="card form-card">
@@ -17,6 +17,16 @@
     <span>Issue #</span>
     <input id="issue" type="number" min="1" placeholder="123">
   </label>
+  {% if providers | length > 1 %}
+  <label class="field field--model">
+    <span>Model</span>
+    <select id="provider">
+      {% for value, name in providers %}
+      <option value="{{ value }}"{{ ' selected' if value == default_provider }}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
   <button id="go" class="btn" type="submit">Analyze</button>
 </form>
 

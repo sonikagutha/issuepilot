@@ -70,3 +70,31 @@ if (unlink) {
     if ((await fetch("/api/profile", { method: "DELETE" })).ok) location.reload();
   });
 }
+
+// Recent pull requests: the status dropdown tracks the PR on the shelf, or
+// updates the tracked issue it fixes. Reload so cards and counts regroup.
+document.querySelectorAll(".pr-list__item").forEach((row) => {
+  const select = row.querySelector(".js-pr-status");
+  const path = `/api/tracked/${row.dataset.repo}/${row.dataset.number}`;
+  const json = (method, body) =>
+    fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  select.addEventListener("change", async () => {
+    const value = select.value;
+    if (!value) return;
+    select.disabled = true;
+
+    let ok;
+    if (value === "__remove") {
+      ok = (await fetch(path, { method: "DELETE" })).ok;
+    } else if (row.dataset.tracked === "true") {
+      ok = (await json("PATCH", { status: value })).ok;
+    } else {
+      ok = (await json("POST", { title: row.dataset.title, html_url: row.dataset.url })).ok
+        && (await json("PATCH", { status: value, pr_url: row.dataset.url })).ok;
+    }
+
+    if (ok) location.reload();
+    else select.disabled = false;
+  });
+});

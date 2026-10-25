@@ -76,6 +76,10 @@ class _FakeGitHubClient:
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path) -> TestClient:
     settings = Settings(
         github_token="x",
+        llm_provider="google",
+        google_api_key="g-key",
+        anthropic_api_key=None,
+        openai_api_key=None,
         trace_db_path=tmp_path / "t.db",
         cache_db_path=tmp_path / "c.db",
         app_db_path=tmp_path / "app.db",
@@ -481,3 +485,86 @@ def test_dashboard_profile_failure_still_renders(
 
     assert r.status_code == 200
     assert "couldn't load your GitHub profile" in r.text
+
+
+def test_analyze_with_provider_override(client: TestClient, fake_github: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = {}
+
+    def _capture(issue, *, settings, trace_store):
+        seen["provider"] = settings.llm_provider
+        return _pipeline_result()
+
+    monkeypatch.setattr(web_app, "run_pipeline", _capture)
+
+    r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1, "provider": "gemma"})
+
+    assert r.status_code == 200
+    assert seen["provider"] == "gemma"
+    assert r.json()["model"].startswith("Gemma 4 · gemma-4")
+
+
+def test_analyze_default_provider_label(client: TestClient, fake_github: None, fake_investigate: None) -> None:
+    r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1})
+
+    assert r.json()["model"].startswith("Gemini · ")
+
+
+def test_analyze_unconfigured_provider_is_400(client: TestClient, fake_github: None, fake_investigate: None) -> None:
+    r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1, "provider": "anthropic"})
+
+    assert r.status_code == 400
+    assert "ANTHROPIC" in r.json()["detail"] or "not configured" in r.json()["detail"]
+
+
+def test_provider_override_does_not_leak(client: TestClient, fake_github: None, fake_investigate: None) -> None:
+    client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1, "provider": "gemma"})
+
+    assert web_app.get_settings().llm_provider == "google"
+
+
+def test_analyze_page_lists_configured_providers(client: TestClient) -> None:
+    r = client.get("/analyze")
+
+    assert '<option value="gemma"' in r.text
+    assert '<option value="google" selected' in r.text
+    assert 'value="anthropic"' not in r.text
+
+
+@pytest.fixture
+def linked_profile(client: TestClient, fake_github: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(web_app, "load_profile_overview", lambda c, login: _overview(login))
+    client.post("/api/profile", json={"username": "octocat"})
+
+
+def test_untracked_pr_offers_track_dropdown(client: TestClient, linked_profile: None) -> None:
+    page = client.get("/dashboard").text
+
+    assert 'class="js-pr-status pr-status pr-status--none"' in page
+    assert "Track…" in page
+    assert 'data-tracked="false"' in page
+
+
+def test_pr_linked_to_tracked_issue_shows_its_status(client: TestClient, linked_profile: None) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+    client.patch(ISSUE_PATH, json={"status": "working", "pr_url": "https://github.com/octo/hello/pull/12"})
+
+    page = client.get("/dashboard").text
+
+    assert "fixes octo/hello#1" in page
+    assert 'class="js-pr-status pr-status pr-status--working"' in page
+    assert 'data-number="1"' in page
+    assert 'data-tracked="true"' in page
+
+
+def test_pr_tracked_directly_by_its_own_number(client: TestClient, linked_profile: None) -> None:
+    client.post(
+        "/api/tracked/octo/hello/12",
+        json={"title": "Fix parser", "html_url": "https://github.com/octo/hello/pull/12"},
+    )
+    client.patch("/api/tracked/octo/hello/12", json={"status": "merged"})
+
+    page = client.get("/dashboard").text
+
+    assert 'class="js-pr-status pr-status pr-status--merged"' in page
+    assert "fixes" not in page
+    assert 'data-tracked="true"' in page
