@@ -88,6 +88,30 @@ class GitHubClient:
             if "pull_request" not in item:  # this endpoint returns PRs too
                 yield item
 
+    def get_user(self, login: str) -> dict[str, Any]:
+        return self._get(f"/users/{login}")
+
+    def search_issues(self, query: str, sort: str = "updated", per_page: int = 10) -> list[dict[str, Any]]:
+        """One page of issue/PR search results."""
+        body = self._get("/search/issues", params={"q": query, "sort": sort, "per_page": per_page})
+        return body["items"]
+
+    def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        """Run a GraphQL query and return its `data` object.
+
+        Not cached: GraphQL is POST-only, so there are no ETags to revalidate.
+        """
+        try:
+            response = self._http.post("/graphql", json={"query": query, "variables": variables})
+        except httpx.TransportError as exc:
+            raise GitHubAPIError(502, f"network error: {exc}") from exc
+        if response.status_code != 200:
+            raise GitHubAPIError(response.status_code, response.text[:200])
+        body = response.json()
+        if body.get("errors"):
+            raise GitHubAPIError(200, "; ".join(err.get("message", "unknown error") for err in body["errors"]))
+        return body["data"]
+
     def search_repositories(self, query: str, sort: str = "stars", per_page: int = 10) -> list[dict[str, Any]]:
         """One page of repository search results (search has a tighter rate limit, so no pagination)."""
         body = self._get("/search/repositories", params={"q": query, "sort": sort, "per_page": per_page})
