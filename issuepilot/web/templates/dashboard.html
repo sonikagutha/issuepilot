@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Your contributions · IssuePilot{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Your contribution shelf</h1>
+  <p class="muted">Everything you've starred, from "maybe later" to merged.</p>
+</section>
+
+<div class="stats">
+  {% for status, label in labels.items() %}
+  <div class="stat stat--{{ status }}">
+    <span class="stat__count">{{ counts[status] }}</span>
+    <span class="stat__label">{{ label }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{% if total == 0 %}
+<div class="card empty">
+  <p>No starred issues yet ☕</p>
+  <p class="muted">Analyze an issue and press <strong>⭐ Star for later</strong> to keep it here.</p>
+  <a class="btn" href="/">Analyze an issue</a>
+</div>
+{% endif %}
+
+{% for status, items in groups.items() if items %}
+<section class="group">
+  <h2 class="group__title">{{ labels[status] }} <span class="muted">· {{ items | length }}</span></h2>
+  {% for item in items %}
+  <article class="card tracked" data-repo="{{ item.repo }}" data-number="{{ item.number }}">
+    <div class="tracked__head">
+      <div>
+        <h3 class="tracked__title"><a href="{{ item.html_url }}" target="_blank" rel="noopener">{{ item.title }}</a></h3>
+        <p class="muted tracked__meta">{{ item.repo }} #{{ item.number }}</p>
+      </div>
+      <select class="js-status" aria-label="Status">
+        {% for value, label in labels.items() %}
+        <option value="{{ value }}" {{ 'selected' if value == item.status }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <label class="field">
+      <span>Notes</span>
+      <textarea class="js-note" rows="2" placeholder="What did you learn? What's next?">{{ item.note }}</textarea>
+    </label>
+
+    <div class="tracked__pr">
+      <label class="field field--grow">
+        <span>Pull request</span>
+        <input class="js-pr-url" value="{{ item.pr_url or '' }}" placeholder="https://github.com/owner/repo/pull/123">
+      </label>
+      <button class="btn btn--ghost js-sync" type="button">Check PR status</button>
+      {% if item.pr_state %}<span class="badge badge--pr-{{ item.pr_state }}">PR {{ item.pr_state }}</span>{% endif %}
+    </div>
+
+    <div class="tracked__foot">
+      <span class="muted js-msg" aria-live="polite"></span>
+      <button class="link-btn js-remove" type="button">Remove</button>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}
+{% block scripts %}<script src="/static/dashboard.js"></script>{% endblock %}

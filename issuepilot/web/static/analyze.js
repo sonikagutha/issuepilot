@@ -29,7 +29,7 @@ function renderResult(d) {
     : [];
 
   return el("article", { className: "card" },
-    el("h2", { text: d.title }),
+    el("div", { className: "result-head" }, el("h2", { text: d.title }), starButton(d)),
     el("p", { className: "muted result-meta" },
       el("a", { text: `#${d.number} · ${d.repo}`, href: d.html_url })),
     el("h3", { text: "Summary" }),
@@ -41,6 +41,32 @@ function renderResult(d) {
     el("h3", { text: "Reasoning" }),
     el("p", { className: "muted reasoning", text: d.reasoning }),
   );
+}
+
+function starButton(d) {
+  const btn = el("button", { className: "btn btn--ghost star-btn" });
+  btn.type = "button";
+  const path = `/api/tracked/${d.repo}/${d.number}`;
+  let starred = d.starred;
+  const paint = () => {
+    btn.textContent = starred ? "★ Starred" : "⭐ Star for later";
+    btn.classList.toggle("is-starred", starred);
+  };
+  paint();
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const r = starred
+      ? await fetch(path, { method: "DELETE" })
+      : await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: d.title, html_url: d.html_url }),
+        });
+    if (r.ok) starred = !starred;
+    paint();
+    btn.disabled = false;
+  });
+  return btn;
 }
 
 function renderError(message) {

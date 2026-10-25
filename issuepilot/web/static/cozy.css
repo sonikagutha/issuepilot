@@ -147,3 +147,57 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-colo
   .loading::before { animation: none; }
   .btn { transition: none; }
 }
+
+/* --- analyze: star button --- */
+.result-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.star-btn.is-starred { background: var(--amber); border-color: var(--amber); color: #3b2f2a; }
+
+/* --- dashboard --- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 28px; }
+.stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--muted);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.stat--starred { border-top-color: var(--amber); }
+.stat--working { border-top-color: var(--accent); }
+.stat--pr_opened { border-top-color: #8c7bb5; }
+.stat--merged { border-top-color: var(--sage); }
+.stat__count { font-family: "Fraunces", Georgia, serif; font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+.stat__label { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+
+.empty { text-align: center; }
+.empty .btn { display: inline-block; text-decoration: none; margin-top: 8px; }
+
+.group__title { font-size: 1.15rem; margin: 8px 0 12px; }
+.tracked { display: flex; flex-direction: column; gap: 12px; }
+.tracked__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.tracked__title { margin: 0; font-size: 1.05rem; }
+.tracked__title a { color: var(--ink); text-decoration: none; }
+.tracked__title a:hover { color: var(--accent); }
+.tracked__meta { margin: 0; font-size: 0.85rem; }
+.tracked__pr { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.tracked__foot { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+
+select, textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+textarea { width: 100%; resize: vertical; }
+select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.badge--pr-open { background: #8c7bb5; }
+.badge--pr-merged { background: var(--sage); }
+.badge--pr-closed { background: var(--muted); }
+
+.link-btn { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; }
+.link-btn:hover { color: var(--terracotta); }

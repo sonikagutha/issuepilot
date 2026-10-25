@@ -40,10 +40,18 @@ class _FakeGitHubClient:
     def fetch_issue(self, owner: str, repo: str, number: int) -> Issue:
         return _issue()
 
+    def get_pull(self, owner: str, repo: str, number: int) -> dict:
+        return {"number": number, "state": "closed", "merged": True}
+
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path) -> TestClient:
-    settings = Settings(github_token="x", trace_db_path=tmp_path / "t.db", cache_db_path=tmp_path / "c.db")
+    settings = Settings(
+        github_token="x",
+        trace_db_path=tmp_path / "t.db",
+        cache_db_path=tmp_path / "c.db",
+        app_db_path=tmp_path / "app.db",
+    )
     monkeypatch.setattr(web_app, "get_settings", lambda: settings)
     return TestClient(web_app.app)
 
@@ -132,3 +140,83 @@ def test_static_css_served(client: TestClient) -> None:
 
     assert r.status_code == 200
     assert "--paper: #faf6ef" in r.text
+
+
+ISSUE_PATH = "/api/tracked/octo/hello/1"
+STAR_BODY = {"title": "Fix the thing", "html_url": "https://github.com/octo/hello/issues/1"}
+
+
+def test_star_then_list(client: TestClient) -> None:
+    r = client.post(ISSUE_PATH, json=STAR_BODY)
+    assert r.status_code == 200
+    assert r.json()["status"] == "starred"
+
+    listing = client.get("/api/tracked").json()
+
+    assert [i["number"] for i in listing["items"]] == [1]
+    assert listing["counts"]["starred"] == 1
+
+
+def test_analyze_reports_starred(client: TestClient, fake_github: None, fake_investigate: None) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    r = client.post("/api/analyze", json={"repo": "octo/hello", "issue": 1})
+
+    assert r.json()["starred"] is True
+
+
+def test_patch_status_and_note(client: TestClient) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    r = client.patch(ISSUE_PATH, json={"status": "working", "note": "on it"})
+
+    assert r.status_code == 200
+    assert r.json()["status"] == "working"
+    assert r.json()["note"] == "on it"
+
+
+def test_patch_invalid_status_is_422(client: TestClient) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    assert client.patch(ISSUE_PATH, json={"status": "done-ish"}).status_code == 422
+
+
+def test_patch_untracked_is_404(client: TestClient) -> None:
+    assert client.patch(ISSUE_PATH, json={"status": "working"}).status_code == 404
+    assert client.delete(ISSUE_PATH).status_code == 404
+
+
+def test_delete_unstars(client: TestClient) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    assert client.delete(ISSUE_PATH).status_code == 204
+    assert client.get("/api/tracked").json()["items"] == []
+
+
+def test_sync_pr_merged_sets_status(client: TestClient, fake_github: None) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+    client.patch(ISSUE_PATH, json={"pr_url": "https://github.com/octo/hello/pull/5"})
+
+    r = client.post(f"{ISSUE_PATH}/sync-pr")
+
+    assert r.status_code == 200
+    assert r.json()["pr_state"] == "merged"
+    assert r.json()["status"] == "merged"
+
+
+def test_sync_pr_rejects_non_pr_url(client: TestClient, fake_github: None) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+    client.patch(ISSUE_PATH, json={"pr_url": "https://github.com/octo/hello/issues/5"})
+
+    assert client.post(f"{ISSUE_PATH}/sync-pr").status_code == 400
+
+
+def test_dashboard_renders_tracked_issue(client: TestClient) -> None:
+    client.post(ISSUE_PATH, json=STAR_BODY)
+
+    r = client.get("/dashboard")
+
+    assert r.status_code == 200
+    assert "Fix the thing" in r.text
+    assert "Working on it" in r.text
+    assert 'href="/dashboard"' in r.text
