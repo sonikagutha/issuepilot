@@ -10,11 +10,13 @@ class Settings(BaseSettings):
     github_token: str
     github_api_base: str = "https://api.github.com"
 
-    llm_provider: Literal["anthropic", "openai"] = "anthropic"
+    llm_provider: Literal["anthropic", "openai", "google"] = "anthropic"
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+    google_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
     openai_model: str = "gpt-4o-mini"
+    google_model: str = "gemini-2.5-flash"
 
     langchain_tracing_v2: bool = False
     langchain_api_key: str | None = None

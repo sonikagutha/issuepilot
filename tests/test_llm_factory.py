@@ -44,3 +44,23 @@ def test_openai_missing_key_raises() -> None:
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         build_chat_model(settings)
+
+
+def test_google_provider_builds_chat_google_generative_ai() -> None:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    settings = Settings(
+        github_token="x", llm_provider="google", google_api_key="test-key", google_model="gemini-2.5-flash"
+    )
+
+    model = build_chat_model(settings)
+
+    assert isinstance(model, ChatGoogleGenerativeAI)
+    assert model.model == "gemini-2.5-flash"
+
+
+def test_google_missing_key_raises() -> None:
+    settings = Settings(github_token="x", llm_provider="google", google_api_key=None)
+
+    with pytest.raises(ValueError, match="GOOGLE_API_KEY"):
+        build_chat_model(settings)

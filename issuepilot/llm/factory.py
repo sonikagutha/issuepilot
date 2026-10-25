@@ -11,10 +11,10 @@ if TYPE_CHECKING:
 def build_chat_model(settings: Settings | None = None, *, temperature: float = 0.0) -> "BaseChatModel":
     """Provider-agnostic chat model factory.
 
-    Every graph node asks this for a model instead of importing
-    langchain_anthropic/langchain_openai directly, so swapping providers
-    (or A/B-ing them in evals) never touches node logic — only
-    LLM_PROVIDER in .env.
+    Every graph node asks this for a model instead of importing a
+    provider SDK directly, so swapping providers (anthropic/openai/
+    google) — or A/B-ing them in evals — never touches node logic,
+    only LLM_PROVIDER in .env.
     """
     settings = settings or get_settings()
 
@@ -38,6 +38,18 @@ def build_chat_model(settings: Settings | None = None, *, temperature: float = 0
         return ChatOpenAI(
             model=settings.openai_model,
             api_key=settings.openai_api_key,
+            temperature=temperature,
+            timeout=60.0,
+        )
+
+    if settings.llm_provider == "google":
+        if not settings.google_api_key:
+            raise ValueError("GOOGLE_API_KEY is required when LLM_PROVIDER=google")
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=settings.google_model,
+            google_api_key=settings.google_api_key,
             temperature=temperature,
             timeout=60.0,
         )
